@@ -20,6 +20,16 @@ import type { ChatStreamEvent } from "@/lib/types";
 // works on both (verified) — Viltrum's tool bug was the OpenAI-compat path.
 const MODELS = ["gemini-3.5-flash", "gemini-2.5-flash"];
 
+// Stable Riigi Teataja consolidated-text URLs for the general acts we cite.
+// (Verified to resolve — RT uses these short codes for the terviktekst.)
+const LAW_URLS: Record<string, string> = {
+  Looduskaitseseadus: "https://www.riigiteataja.ee/akt/LKS",
+  Metsaseadus: "https://www.riigiteataja.ee/akt/MS",
+  Veeseadus: "https://www.riigiteataja.ee/akt/VeeS",
+  Ehitusseadustik: "https://www.riigiteataja.ee/akt/EhS",
+  Maapõueseadus: "https://www.riigiteataja.ee/akt/MaaPS",
+};
+
 const SYSTEM = `Sa oled Eesti maa- ja metsanduskitsenduste assistent. Sulle antakse ühe katastriüksuse
 KÕIK kitsendused (kaitsealad, vöönd, Natura, kaitsealused liigid, elektriliinid, teed, vee-/nitraadialad)
 ja kohalduva kaitse-eeskirja paragrahvid.
@@ -33,6 +43,8 @@ RANGED reeglid:
   **✅ Lubatud:** kuni 3 lühikest punkti.
   **⛔ Vajab luba / keelatud:** kuni 4 lühikest punkti, igaüks lõpus § või asutus (Keskkonnaamet / Elektrilevi / Transpordiamet).
 - Iga looduskaitse-väide viita §-le. ÄRA leiuta; kui eeskirjas pole, ütle "täpsusta Keskkonnaametiga".
+- VIITED KLIKITAVAKS: kui viitad seadusele või kaitse-eeskirjale, vorminda see Markdown-lingina kujul [Looduskaitseseadus §14](URL).
+  Kasuta AINULT alloleva "VIITED" ploki URL-e — ÄRA leiuta ega muuda URL-e. Kui sobivat URL-i pole, kirjuta seaduse nimi ilma lingita.
 - TÄHTIS: LOETLE ALATI kõik kontekstis olevad kitsendused — ka kui looduskaitsealasid pole. Iga kitsendus → mida see tähendab:
   elektriliin → kaitsevöönd, kaevetööd/ehitus vajavad Elektrilevi nõusolekut; puurkaev → sanitaarkaitsevöönd;
   nitraaditundlik/põhjaveega ala → Veeseaduse väetise-/reostusnõuded; maardla / uuringuala → kaevandamis-/uuringupiirangud;
@@ -81,6 +93,10 @@ function buildContext(
     .map((p) => `§${p.nr} ${p.title}\n${p.text}`)
     .join("\n\n");
 
+  // Reference links the model may cite (general acts + this area's eeskiri).
+  const refs = Object.entries(LAW_URLS).map(([n, u]) => `${n}: ${u}`);
+  if (eeskiri?.url) refs.push(`Kaitse-eeskiri (akt ${eeskiri.aktId}): ${eeskiri.url}`);
+
   return `KATASTRITUNNUS: ${tunnus}${address ? ` (${address})` : ""}
 VÖÖND: ${zone}
 KAITSEALAD: ${protection.join("; ") || "(puuduvad)"}
@@ -89,7 +105,10 @@ ${speciesLine}
 ${muudLine}
 
 KAITSE-EESKIRI (${eeskiri?.aktId ?? "?"}, ${eeskiri?.url ?? ""}):
-${paraLines || "(kaitse-eeskirja ei kohaldu või ei leitud)"}`;
+${paraLines || "(kaitse-eeskirja ei kohaldu või ei leitud)"}
+
+VIITED (kasuta neid linke; ära leiuta URL-e):
+${refs.join("\n")}`;
 }
 
 let _id = 0;
@@ -216,7 +235,10 @@ export async function* streamAnswer(tunnus: string, question = ""): AsyncGenerat
     let lastErr: unknown;
     for (let m = 0; m < MODELS.length && !stream; m++) {
       const model = MODELS[m];
-      for (let attempt = 0; attempt < 3; attempt++) {
+      // One quick retry per model, then fail fast to the next in the chain.
+      // A 503 on the primary should hand off to the stable fallback in ~0.8s,
+      // not burn ~4.5s of backoff first (that was the perceived slowness).
+      for (let attempt = 0; attempt < 2; attempt++) {
         try {
           stream = await ai.models.generateContentStream({
             model,
@@ -235,9 +257,8 @@ export async function* streamAnswer(tunnus: string, question = ""): AsyncGenerat
           lastErr = e;
           const msg = e instanceof Error ? e.message : String(e);
           const overloaded = /50[03]|high demand|overload|429|UNAVAILABLE/i.test(msg);
-          if (overloaded && attempt < 2) {
-            yield { type: "tool_result", id: synthId, ok: true, detail: `${model} hõivatud, proovin uuesti (${attempt + 1}/3)…` };
-            await new Promise((r) => setTimeout(r, 1500 * (attempt + 1)));
+          if (overloaded && attempt < 1) {
+            await new Promise((r) => setTimeout(r, 800));
             continue;
           }
           break; // give up on this model → try next in chain

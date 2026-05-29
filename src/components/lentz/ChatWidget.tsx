@@ -315,11 +315,27 @@ export default function ChatWidget({ report }: { report: ParcelReport }) {
   );
 }
 
-// Minimal markdown for the assistant bubble: **bold**, _italic_, and bullet
-// lines (- / *). Keeps the streamed answer readable without a markdown dep.
+// Minimal markdown for the assistant bubble: [link](url), **bold**, _italic_,
+// and bullet lines (- / *). Keeps the streamed answer readable without a
+// markdown dep — links open the law/eeskiri source in a new tab.
 function inline(text: string) {
-  const parts = text.split(/(\*\*[^*]+\*\*|_[^_]+_)/g).filter(Boolean);
+  const parts = text
+    .split(/(\[[^\]]+\]\([^)]+\)|\*\*[^*]+\*\*|_[^_]+_)/g)
+    .filter(Boolean);
   return parts.map((p, i) => {
+    const link = p.match(/^\[([^\]]+)\]\(([^)]+)\)$/);
+    if (link)
+      return (
+        <a
+          key={i}
+          href={link[2]}
+          target="_blank"
+          rel="noreferrer"
+          className="font-medium text-[#2f5d3a] underline decoration-[#2f5d3a]/40 underline-offset-2 hover:decoration-[#2f5d3a]"
+        >
+          {link[1]}
+        </a>
+      );
     if (p.startsWith("**") && p.endsWith("**"))
       return <strong key={i}>{p.slice(2, -2)}</strong>;
     if (p.startsWith("_") && p.endsWith("_"))

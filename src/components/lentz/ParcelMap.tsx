@@ -78,6 +78,7 @@ export default function ParcelMap({ report }: { report: ParcelReport }) {
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<maplibregl.Map | null>(null);
   const [kaitsealad, setKaitsealad] = useState<string[]>([]);
+  const [kaDone, setKaDone] = useState(false); // EELIS kaitseala fetch finished?
   const [cats, setCats] = useState<string[]>([]);
 
   useEffect(() => {
@@ -115,6 +116,7 @@ export default function ParcelMap({ report }: { report: ParcelReport }) {
       fetch(url)
         .then((r) => (r.ok ? r.json() : Promise.reject(r.status)))
         .then((fc: GeoJSON.FeatureCollection) => {
+          setKaDone(true);
           if (!fc.features?.length || !mapRef.current) return;
           map.addSource("kaitseala", { type: "geojson", data: fc });
           map.addLayer(
@@ -146,6 +148,7 @@ export default function ParcelMap({ report }: { report: ParcelReport }) {
         })
         .catch(() => {
           /* overlay is optional — leave the map informational without it */
+          setKaDone(true);
         });
 
       // All kitsendused (poles, power lines, water/road zones, species) — one
@@ -224,10 +227,15 @@ export default function ParcelMap({ report }: { report: ParcelReport }) {
           <span className="h-3 w-3 border-2 border-[#1d4ed8] bg-[#2563eb]/20" />
           Kinnistu
         </div>
-        <div className="flex items-center gap-2">
-          <span className="h-3 w-3 border border-[#15803d] bg-[#16a34a]/30" />
-          {kaitsealad.length ? "Kaitseala" : "Kaitseala (kontrollin…)"}
-        </div>
+        {/* Show the green kaitseala row only while checking, or once one is
+            actually found. If the fetch finished and the parcel has no kaitseala
+            nearby, drop the row entirely (no permanent "kontrollin…"). */}
+        {(!kaDone || kaitsealad.length > 0) && (
+          <div className="flex items-center gap-2">
+            <span className="h-3 w-3 border border-[#15803d] bg-[#16a34a]/30" />
+            {kaitsealad.length ? "Kaitseala" : "Kaitseala (kontrollin…)"}
+          </div>
+        )}
         {kaitsealad.map((n) => (
           <p key={n} className="mt-1 max-w-[14rem] text-[11px] leading-tight text-[#14130f]/60">
             {n}
