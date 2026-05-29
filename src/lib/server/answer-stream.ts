@@ -21,21 +21,18 @@ import type { ChatStreamEvent } from "@/lib/types";
 const MODELS = ["gemini-3.5-flash", "gemini-2.5-flash"];
 
 const SYSTEM = `Sa oled Eesti maa- ja metsanduskitsenduste assistent. Sulle antakse ühe katastriüksuse
-KÕIK kitsendused (kaitsealad, vöönd, Natura, kaitsealused liigid, elektriliinid, teed, vee-/nitraadialad)
-ja kohalduva kaitse-eeskirja paragrahvid.
+KÕIK kitsendused (kaitsealad, vöönd, Natura, kaitsealused liigid, elektriliinid, teed, vee-/nitraadialad),
+kohalduva kaitse-eeskirja paragrahvid ja KASUTAJA KÜSIMUS.
 
-Vasta EESTI KEELES — LÜHIDALT JA SKANNITAVALT. Metsaomanik tahab kiiret vastust, MITTE pikka kirja.
+Vasta EESTI KEELES ja VASTA TÄPSELT KASUTAJA KÜSIMUSELE — mitte üldist kokkuvõtet. Ole VÄGA lühike.
 RANGED reeglid:
-- ÄRA kasuta tervitust ("Lugupeetud…") ega sissejuhatust. Alusta kohe sisuga.
-- Maksimaalselt ~120 sõna kokku.
-- Vorming (Markdown):
-  **Raie:** üks lause — kas ja mis raie on lubatud (nt "Turberaie lubatud, lageraie keelatud (§15)").
-  **✅ Lubatud:** kuni 3 lühikest punkti.
-  **⛔ Vajab luba / keelatud:** kuni 4 lühikest punkti, igaüks lõpus § või asutus (Keskkonnaamet / Elektrilevi / Transpordiamet).
-- Iga looduskaitse-väide viita §-le. ÄRA leiuta; kui eeskirjas pole, ütle "täpsusta Keskkonnaametiga".
-- Kui kaitsealasid pole, ütle ühe lausega et looduskaitse-piiranguid pole ja raie on lubatud (Metsaseadus, metsateatis); maini taristut (elektriliin/tee) kui on.
-- Lõppu ÜKS lühike rida: "_Info, mitte ametlik otsus._"
-Ära korda kogu kitsenduste loendit — too välja ainult see, mis mõjutab tegevust.`;
+- ÄRA tervita ega juhata sisse. Alusta kohe vastusega.
+- KOKKU maksimaalselt 2–3 lauset. Eelista täppe (bullet) pikkadele lõikudele.
+- Lisa vajadusel kuni 3 lühikest täppi, igaüks ÜKS rida, alustab "- ".
+- Iga looduskaitse-väide viita §-le (nt §15) või asutusele (Keskkonnaamet / Elektrilevi / Transpordiamet).
+  ÄRA leiuta; kui eeskirjas vastust pole, ütle ühe lausega "täpsusta Keskkonnaametiga".
+- Kui küsimusele andmetes vastust pole, ütle see ühe lausega.
+- Lõppu üks rida: "_Info, mitte ametlik otsus._"`;
 
 type Eeskiri = {
   aktId: string;
@@ -97,7 +94,10 @@ const nextId = () => `tc_${++_id}`;
  * Stream the full lookup for `tunnus` as SSE events. The route handler turns
  * each yielded event into a `data: {...}\n\n` frame.
  */
-export async function* streamAnswer(tunnus: string): AsyncGenerator<ChatStreamEvent> {
+export async function* streamAnswer(
+  tunnus: string,
+  question?: string,
+): AsyncGenerator<ChatStreamEvent> {
   // 1) Overlay sweep — Kataster (parcel) + EELIS (intersecting layers).
   const sweepId = nextId();
   yield { type: "tool_call", id: sweepId, name: "Kataster + EELIS", detail: `Otsin katastriüksust ${tunnus} ja kattuvaid kaitsealasid…` };
@@ -213,7 +213,20 @@ export async function* streamAnswer(tunnus: string): AsyncGenerator<ChatStreamEv
         try {
           stream = await ai.models.generateContentStream({
             model,
-            contents: [{ role: "user", parts: [{ text: context }] }],
+            contents: [
+              {
+                role: "user",
+                parts: [
+                  { text: context },
+                  {
+                    text: `KASUTAJA KÜSIMUS: ${
+                      question?.trim() ||
+                      "Anna lühike ülevaade: mida tohib ja mida ei tohi sellel kinnistul teha?"
+                    }`,
+                  },
+                ],
+              },
+            ],
             config: {
               systemInstruction: SYSTEM,
               // Thinking tokens count toward this cap (Gemini 2.5), so 700 left

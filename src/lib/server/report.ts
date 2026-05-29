@@ -63,6 +63,39 @@ function polygonArea3301(geom: { type: string; coordinates: number[][][] | numbe
   return 0;
 }
 
+// Deterministic ecological score (0–100) + terse good/concerning bullets,
+// derived purely from the overlap data we already fetched — no extra request,
+// no LLM. Higher = ecologically richer / lower disturbance.
+function deriveEco(
+  areas: { category?: string; natura?: boolean; label?: string; nimi?: string | null; layer?: string }[],
+  restrictions: Array<Record<string, unknown>>,
+  speciesTotal: number,
+): { score: number; good: string[]; concerning: string[] } {
+  const good: string[] = [];
+  const concerning: string[] = [];
+  let score = 50;
+
+  const has = (cat: string) => areas.some((a) => a.category === cat);
+  const text = (a: { label?: string; nimi?: string | null; layer?: string }) =>
+    `${a.label ?? ""} ${a.nimi ?? ""} ${a.layer ?? ""}`.toLowerCase();
+  const drainage =
+    areas.some((a) => /maaparand|kuivend|kraav/.test(text(a))) ||
+    restrictions.some((r) => /maaparand|kuivend|kraav/.test(String(r.title ?? r.area ?? "").toLowerCase()));
+  const natura = has("natura") || areas.some((a) => a.natura);
+
+  if (has("protection")) { score += 15; good.push("Asub kaitsealal — elurikkus tavaliselt paremas seisus."); }
+  if (natura) { score += 20; good.push("Natura 2000 — üleeuroopalise tähtsusega elupaik."); }
+  if (has("water")) { score += 10; good.push("Märgala / veekogu elupaik kinnistul."); }
+  if (speciesTotal > 0) { score += Math.min(10, speciesTotal); good.push(`${speciesTotal} kaitsealust liiki on piirkonnas registreeritud.`); }
+
+  if (drainage && has("water")) { score -= 20; concerning.push("Kuivenduskraavid mõjutavad märgala veerežiimi."); }
+  else if (drainage) { score -= 8; concerning.push("Kinnistul on maaparandussüsteem."); }
+  if (has("hazard")) { score -= 10; concerning.push("Läheduses on registreeritud reostusoht."); }
+  if (!good.length) good.push("Olulisi looduskaitselisi väärtusi ei tuvastatud.");
+
+  return { score: Math.max(0, Math.min(100, score)), good: good.slice(0, 4), concerning: concerning.slice(0, 3) };
+}
+
 function speciesGroup(name: string): "animal" | "plant" | "fungi" {
   const n = name.toLowerCase();
   if (/silmik|liblik|kärbes|mardikas|konn|nahkhiir|lind/.test(n)) return "animal";
@@ -201,5 +234,6 @@ export async function buildReport(tunnus: string) {
       forbidden: restrictions.filter((r) => r.severity === "red").map((r) => String(r.title)),
       consider: restrictions.filter((r) => r.severity === "amber").map((r) => String(r.title)),
     },
+    eco: deriveEco(panel?.areas ?? [], restrictions, speciesItems.length),
   };
 }

@@ -27,9 +27,11 @@ function frame(evt: ChatStreamEvent): string {
 
 export async function POST(req: Request) {
   let tunnus = "";
+  let question = "";
   try {
-    const body = (await req.json()) as { tunnus?: string };
+    const body = (await req.json()) as { tunnus?: string; question?: string };
     tunnus = (body.tunnus ?? "").trim();
+    question = (body.question ?? "").trim();
   } catch {
     /* fallthrough to validation */
   }
@@ -57,7 +59,7 @@ export async function POST(req: Request) {
   const stream = new ReadableStream({
     async start(controller) {
       try {
-        for await (const evt of streamAnswer(tunnus)) {
+        for await (const evt of streamAnswer(tunnus, question)) {
           controller.enqueue(encoder.encode(frame(evt)));
         }
       } catch (e) {
