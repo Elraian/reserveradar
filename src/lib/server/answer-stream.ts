@@ -15,9 +15,10 @@ import {
 } from "./parcel";
 import type { ChatStreamEvent } from "@/lib/types";
 
-// Model + fallback chain (backend's call). 2.5-flash is GA with ample capacity —
-// 3.5-flash was returning persistent 503 "high demand". flash-latest is last resort.
-const MODELS = ["gemini-2.5-flash", "gemini-flash-latest"];
+// Model + fallback chain: try the newer/smarter 3.5-flash first, fall back to
+// 2.5-flash automatically if 3.5 is overloaded (503). Native function-calling
+// works on both (verified) — Viltrum's tool bug was the OpenAI-compat path.
+const MODELS = ["gemini-3.5-flash", "gemini-2.5-flash"];
 
 const SYSTEM = `Sa oled Eesti maa- ja metsanduskitsenduste assistent. Sulle antakse ühe katastriüksuse
 KÕIK kitsendused (kaitsealad, vöönd, Natura, kaitsealused liigid, elektriliinid, teed, vee-/nitraadialad)

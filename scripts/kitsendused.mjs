@@ -40,6 +40,7 @@ export async function getKitsendused(tunnus) {
       kkr: o.externalReference ?? null,                 // KKR code → links to eeskiri
       area_m2: r.intersectionArea != null ? Math.round(r.intersectionArea) : null,
       length_m: r.intersectionLength != null ? Math.round(r.intersectionLength) : null,
+      geom: r.intersectingGeometry ?? null,             // GeoJSON in EPSG:3301 (reproject for maps)
       validFrom: o.validFrom ?? null,
     };
   });

@@ -16,9 +16,33 @@ export function resolveEeskiriAkt(areaName) {
 }
 
 /**
- * Resolve ANY protected area → its kaitse-eeskiri akt id, using Gemini with
- * Google Search grounding (same capability Viltrum uses). Cached after first hit.
- * Returns akt id string or null.
+ * Verify a candidate akt id IS the current kaitse-eeskiri for `areaName`.
+ * Gemini grounding constructs RT URLs from memory and often hallucinates the
+ * id (e.g. a 404), so we never trust it blind: fetch the akt and confirm the
+ * area's name + "eeskiri" appear in the title, and it's not repealed.
+ */
+async function verifyAkt(id, areaName) {
+  try {
+    // Range keeps it cheap — the title lives in the first KBs (akt XML is huge).
+    const r = await fetch(`https://www.riigiteataja.ee/akt/${id}.xml`, {
+      headers: { Range: "bytes=0-40000", "User-Agent": "ReserveRadar/0.1" },
+    });
+    if (r.status !== 200 && r.status !== 206) return false; // 404 = hallucinated id
+    const xml = await r.text();
+    const title = (xml.match(/<pealkiri>([^<]+)/)?.[1] ?? "").toLowerCase();
+    const repealed = /<kehtivuseLopp>/.test(xml);
+    const key = areaName.toLowerCase().split(/\s+/)[0]; // e.g. "kõrvemaa"
+    return !repealed && title.includes(key) && title.includes("eeskiri");
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Resolve ANY protected area → its current kaitse-eeskiri akt id.
+ * Gemini + Google Search proposes a candidate; we VERIFY it against the real
+ * RT akt and retry with feedback (excluding wrong guesses) so a hallucinated
+ * or repealed id is never accepted. Cached after a verified hit.
  */
 export async function resolveEeskiriAktSearch(areaName) {
   if (EESKIRI_AKT[areaName]) return EESKIRI_AKT[areaName];
@@ -26,28 +50,36 @@ export async function resolveEeskiriAktSearch(areaName) {
   if (!apiKey) return null;
 
   const ai = new GoogleGenAI({ apiKey });
-  const prompt = `Leia Riigi Teatajast praegu KEHTIV "${areaName}" kaitse-eeskiri (Vabariigi Valitsuse määrus).
-Vasta AINULT akti ID-ga, mis on riigiteataja.ee/akt/<ID> URL-i lõpus (ainult numbrid, nt 105072023204).
-Kui ei leia, vasta "NONE".`;
-  for (let attempt = 0; attempt < 3; attempt++) {
+  const tried = [];
+  const RES_MODELS = ["gemini-3.5-flash", "gemini-2.5-flash"]; // newer first, fall back
+
+  for (let attempt = 0; attempt < 4; attempt++) {
+    const prompt = `Otsi veebist (riigiteataja.ee) "${areaName}" praegu KEHTIVA kaitse-eeskirja Riigi Teataja akt.
+Vasta AINULT täpse URL-iga kujul https://www.riigiteataja.ee/akt/<ID> (ID on numbrid).${
+      tried.length ? ` Need numbrid olid VALED või ei avanenud — ÄRA korda: ${tried.join(", ")}.` : ""
+    }`;
+    let text = "";
     try {
       const res = await ai.models.generateContent({
-        model: "gemini-2.5-flash",
+        model: RES_MODELS[Math.min(attempt, RES_MODELS.length - 1)],
         contents: [{ role: "user", parts: [{ text: prompt }] }],
-        config: { tools: [{ googleSearch: {} }], maxOutputTokens: 200, thinkingConfig: { thinkingBudget: 0 } },
+        config: { tools: [{ googleSearch: {} }], maxOutputTokens: 300, thinkingConfig: { thinkingBudget: 0 } },
       });
-      const id = (res.text ?? "").match(/\b(\d{6,})\b/)?.[1] ?? null;
-      if (id) EESKIRI_AKT[areaName] = id; // cache
-      return id;
+      text = res.text ?? "";
     } catch (e) {
-      const overloaded = /50[03]|high demand|overload|429/i.test(e.message);
-      if (overloaded && attempt < 2) {
-        await new Promise((r) => setTimeout(r, 1500 * (attempt + 1)));
-        continue;
-      }
-      console.log(`  eeskiri search err: ${e.message.slice(0, 80)}`);
+      const overloaded = /50[03]|high demand|overload|429|UNAVAILABLE/i.test(e.message ?? "");
+      if (overloaded) { await new Promise((r) => setTimeout(r, 1500 * (attempt + 1))); continue; }
+      console.log(`  eeskiri search err: ${(e.message ?? "").slice(0, 80)}`);
       return null;
     }
+
+    const id = text.match(/akt\/(\d{6,})/)?.[1] ?? text.match(/\b(\d{9,12})\b/)?.[1] ?? null;
+    if (!id || tried.includes(id)) continue;
+    if (await verifyAkt(id, areaName)) {
+      EESKIRI_AKT[areaName] = id; // cache the VERIFIED hit
+      return id;
+    }
+    tried.push(id); // wrong/404 → tell the model next round
   }
   return null;
 }

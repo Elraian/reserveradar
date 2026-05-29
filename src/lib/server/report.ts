@@ -4,15 +4,34 @@
 //   const report = await fetch(`${BACKEND}/api/report/${tunnus}`).then(r => r.json())
 // Deterministic + fast (no LLM call here; the conversational answer is /api/chat).
 import "server-only";
+import proj4 from "proj4";
 import { getKitsendused } from "@scripts/kitsendused.mjs";
-import { resolveEeskiriAktSearch, fetchEeskiriParagraphs } from "@scripts/rt.mjs";
+import { resolveEeskiriAktSearch } from "@scripts/rt.mjs";
 import { resolveParcel } from "./parcel";
+
+// L-EST97 (Estonian national grid) → WGS84, so restriction geometries (poles,
+// power lines, areas) can be drawn on the MapLibre map alongside the parcel.
+proj4.defs(
+  "EPSG:3301",
+  "+proj=lcc +lat_0=57.5175539305556 +lon_0=24 +lat_1=59.3333333333333 +lat_2=58 +x_0=500000 +y_0=6375000 +ellps=GRS80 +towgs84=0,0,0,0,0,0,0 +units=m +no_defs",
+);
+function reproject3301to4326(geom: { type: string; coordinates: unknown } | null): unknown {
+  if (!geom) return null;
+  const map = (c: unknown): unknown =>
+    Array.isArray(c) && typeof c[0] === "number"
+      ? proj4("EPSG:3301", "EPSG:4326", c as number[])
+      : Array.isArray(c)
+        ? c.map(map)
+        : c;
+  return { type: geom.type, coordinates: map(geom.coordinates) };
+}
 
 type Severity = "red" | "amber" | "green";
 
 type KitsRestriction = {
   name?: string | null; kind?: string | null; category: string;
   area_m2?: number | null; length_m?: number | null; kkr?: string | null;
+  geom?: { type: string; coordinates: unknown } | null; // EPSG:3301
 };
 
 const CAT_LABEL: Record<string, string> = {
@@ -65,6 +84,10 @@ export async function buildReport(tunnus: string) {
   ]);
   if (!kits.found) return { found: false, tunnus };
 
+  // Canonical "see the source" link: the official Maa-amet kitsenduste page
+  // for this exact parcel (every restriction here is visible there).
+  const kitsendusedUrl = `https://kitsendused.kataster.ee/public?code=${tunnus}`;
+
   const parcelM2 = polygonArea3301(kits.geometry as never) || panel?.areas ? polygonArea3301(kits.geometry as never) : 0;
   const totalM2 = parcelM2 || 1;
 
@@ -75,13 +98,12 @@ export async function buildReport(tunnus: string) {
   let eeskiriUrl: string | null = null;
   let ruleDocs: { title: string; url: string; issuer: string; date: string }[] = [];
   if (nature[0]?.name) {
+    // Resolve only the akt ID → build the link. The panel needs the URL, not the
+    // 9–19 MB paragraph text (that's fetched lazily in the /api/chat answer).
     const akt = await resolveEeskiriAktSearch(nature[0].name).catch(() => null);
     if (akt) {
-      const e = await fetchEeskiriParagraphs(akt).catch(() => null);
-      if (e) {
-        eeskiriUrl = e.url;
-        ruleDocs = [{ title: `${nature[0].name} kaitse-eeskiri`, url: e.url, issuer: "Vabariigi Valitsus", date: "" }];
-      }
+      eeskiriUrl = `https://www.riigiteataja.ee/akt/${akt}`;
+      ruleDocs = [{ title: `${nature[0].name} kaitse-eeskiri`, url: eeskiriUrl, issuer: "Vabariigi Valitsus", date: "" }];
     }
   }
 
@@ -98,6 +120,7 @@ export async function buildReport(tunnus: string) {
     const coveragePct = Math.min(100, Math.round((areaM2 / totalM2) * 1000) / 10);
     restrictions.push({
       category: CAT_LABEL[r.category] ?? "Muu",
+      catKey: r.category, // raw key → drives map colour
       title: r.kind ?? r.name ?? "Kitsendus",
       area: r.name ?? r.kind ?? "",
       areaM2,
@@ -105,6 +128,9 @@ export async function buildReport(tunnus: string) {
       severity: severityOf(r.category, coveragePct),
       rule: r.category === "looduskaitse" ? "Kaitse-eeskiri" : undefined,
       ruleUrl: r.category === "looduskaitse" ? eeskiriUrl ?? undefined : undefined,
+      // "Open the source" — the official Maa-amet kitsenduste page for this parcel.
+      cardUrl: kitsendusedUrl,
+      geometry: reproject3301to4326(r.geom ?? null), // 4326 for the map
     });
   }
 
@@ -115,7 +141,11 @@ export async function buildReport(tunnus: string) {
     const { latin, et } = splitLatinEt(s.name ?? "");
     if (sSeen.has(latin)) continue;
     sSeen.add(latin);
-    species.push({ group: speciesGroup(s.name ?? ""), latin, et, kind: s.kind ?? "III kaitsekategooria" });
+    species.push({
+      group: speciesGroup(s.name ?? ""), latin, et,
+      kind: s.kind ?? "III kaitsekategooria",
+      geometry: reproject3301to4326(s.geom ?? null),
+    });
   }
 
   const overall: Severity = restrictions.some((r) => r.severity === "red")
@@ -154,6 +184,12 @@ export async function buildReport(tunnus: string) {
     center,
     geometry: g ?? null,
     zone: panel?.zone ?? null,
+    // Source links — where every data point can be opened/verified.
+    kitsendusedUrl,
+    sources: [
+      { title: "Maa-amet — kitsendused", url: kitsendusedUrl, issuer: "Maa- ja Ruumiamet" },
+      ...ruleDocs,
+    ],
     restrictions,
     species,
     speciesTotal: speciesItems.length,
