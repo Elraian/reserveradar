@@ -28,6 +28,9 @@ export default function TopicFilter({
 }) {
   return (
     <div className="mt-5">
+      <p className="mb-2 text-center text-xs font-medium uppercase tracking-wide text-[#14130f]/40">
+        Vali, mida raportis näidata
+      </p>
       <div className="flex flex-wrap justify-center gap-2">
         {TOPICS.map((t) => {
           const on = selected.has(t.key);
@@ -37,10 +40,10 @@ export default function TopicFilter({
               type="button"
               aria-pressed={on}
               onClick={() => onToggle(t.key)}
-              className={`px-3 py-1.5 text-sm ring-1 transition ${
+              className={`cursor-pointer rounded-md px-3.5 py-1.5 text-sm font-medium shadow-sm ring-1 transition-all active:scale-[0.97] ${
                 on
-                  ? "bg-[#14130f] text-[#f1f0ea] ring-[#14130f]"
-                  : "bg-transparent text-[#14130f]/60 ring-black/20 hover:bg-black/5"
+                  ? "bg-[#14130f] text-[#f1f0ea] ring-[#14130f] hover:bg-[#14130f]/90"
+                  : "bg-white text-[#14130f]/60 ring-black/15 hover:-translate-y-0.5 hover:text-[#14130f] hover:shadow-md hover:ring-[#14130f]/40"
               }`}
             >
               {t.label}
