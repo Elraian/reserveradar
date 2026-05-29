@@ -99,7 +99,7 @@ const nextId = () => `tc_${++_id}`;
  * Stream the full lookup for `tunnus` as SSE events. The route handler turns
  * each yielded event into a `data: {...}\n\n` frame.
  */
-export async function* streamAnswer(tunnus: string): AsyncGenerator<ChatStreamEvent> {
+export async function* streamAnswer(tunnus: string, question = ""): AsyncGenerator<ChatStreamEvent> {
   // 1) Overlay sweep — Kataster (parcel) + EELIS (intersecting layers).
   const sweepId = nextId();
   yield { type: "tool_call", id: sweepId, name: "Kataster + EELIS", detail: `Otsin katastriüksust ${tunnus} ja kattuvaid kaitsealasid…` };
@@ -173,8 +173,13 @@ export async function* streamAnswer(tunnus: string): AsyncGenerator<ChatStreamEv
     }
   }
 
-  // 3) Synthesis — one Gemini call, streamed.
-  const context = buildContext(tunnus, sweep.address, areas, zone, eeskiri);
+  // 3) Synthesis — one Gemini call, streamed. If the user asked a specific
+  // question (chat), put it first so the model answers THAT (still grounded in
+  // the kitsendused + eeskiri below); otherwise it gives the standard overview.
+  const baseContext = buildContext(tunnus, sweep.address, areas, zone, eeskiri);
+  const context = question
+    ? `KASUTAJA KÜSIMUS: "${question}"\nVasta EELKÕIGE sellele küsimusele, tuginedes allolevatele andmetele. Kui küsimus on üldine, anna tavapärane ülevaade.\n\n${baseContext}`
+    : baseContext;
   const apiKey = process.env.GEMINI_API_KEY;
 
   if (!apiKey) {
