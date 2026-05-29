@@ -4,7 +4,7 @@ import "./globals.css";
 export const metadata: Metadata = {
   title: "Reserve Radar — mida tohib sellel maal teha?",
   description:
-    "Sisesta katastritunnus või aadress ja näe koheselt, millised looduskaitselised piirangud kinnistule kehtivad.",
+    "Sisesta katastritunnus või aadress ja näe koheselt, millised piirangud kinnistule kehtivad.",
 };
 
 export default function RootLayout({

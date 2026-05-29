@@ -84,34 +84,39 @@ export default function PainterlyCanopy({
     const gl = cv.getContext("webgl", { antialias: true, alpha: false });
     if (!gl) return;
 
-    const compile = (type: number, src: string) => {
-      const s = gl.createShader(type)!;
-      gl.shaderSource(s, src);
-      gl.compileShader(s);
-      if (!gl.getShaderParameter(s, gl.COMPILE_STATUS))
-        console.error(gl.getShaderInfoLog(s));
-      return s;
+    let u: Record<string, WebGLUniformLocation | null> = {};
+
+    // Build (or rebuild, after a context-loss) the GL program + geometry.
+    const buildGL = () => {
+      const compile = (type: number, src: string) => {
+        const s = gl.createShader(type)!;
+        gl.shaderSource(s, src);
+        gl.compileShader(s);
+        if (!gl.getShaderParameter(s, gl.COMPILE_STATUS))
+          console.error(gl.getShaderInfoLog(s));
+        return s;
+      };
+      const prog = gl.createProgram()!;
+      gl.attachShader(prog, compile(gl.VERTEX_SHADER, VERT));
+      gl.attachShader(prog, compile(gl.FRAGMENT_SHADER, FRAG));
+      gl.linkProgram(prog);
+      gl.useProgram(prog);
+
+      const buf = gl.createBuffer();
+      gl.bindBuffer(gl.ARRAY_BUFFER, buf);
+      gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 3, -1, -1, 3]), gl.STATIC_DRAW);
+      const pl = gl.getAttribLocation(prog, "p");
+      gl.enableVertexAttribArray(pl);
+      gl.vertexAttribPointer(pl, 2, gl.FLOAT, false, 0, 0);
+
+      const U = (n: string) => gl.getUniformLocation(prog, n);
+      u = {
+        res: U("u_res"), time: U("u_time"), mouse: U("u_mouse"), pres: U("u_pres"),
+        radius: U("u_radius"), green: U("u_green"), speed: U("u_speed"),
+        click: U("u_click"), clickT: U("u_clickT"),
+      };
     };
-
-    const prog = gl.createProgram()!;
-    gl.attachShader(prog, compile(gl.VERTEX_SHADER, VERT));
-    gl.attachShader(prog, compile(gl.FRAGMENT_SHADER, FRAG));
-    gl.linkProgram(prog);
-    gl.useProgram(prog);
-
-    const buf = gl.createBuffer();
-    gl.bindBuffer(gl.ARRAY_BUFFER, buf);
-    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 3, -1, -1, 3]), gl.STATIC_DRAW);
-    const pl = gl.getAttribLocation(prog, "p");
-    gl.enableVertexAttribArray(pl);
-    gl.vertexAttribPointer(pl, 2, gl.FLOAT, false, 0, 0);
-
-    const U = (n: string) => gl.getUniformLocation(prog, n);
-    const u = {
-      res: U("u_res"), time: U("u_time"), mouse: U("u_mouse"), pres: U("u_pres"),
-      radius: U("u_radius"), green: U("u_green"), speed: U("u_speed"),
-      click: U("u_click"), clickT: U("u_clickT"),
-    };
+    buildGL();
 
     let DPR = 1, W = 1, H = 1;
     const resize = () => {
@@ -135,14 +140,7 @@ export default function PainterlyCanopy({
       tmy = (r.height - (e.clientY - r.top)) * DPR;
       lastMove = tcur;
     };
-    const onDown = (e: PointerEvent) => {
-      const r = cv.getBoundingClientRect();
-      clX = (e.clientX - r.left) * DPR;
-      clY = (r.height - (e.clientY - r.top)) * DPR;
-      clT = tcur; lastMove = tcur; tmx = clX; tmy = clY;
-    };
     window.addEventListener("pointermove", onMove);
-    window.addEventListener("pointerdown", onDown);
 
     const reduce = matchMedia("(prefers-reduced-motion: reduce)").matches;
     const rfac = reduce ? 0.18 : 1.0;
@@ -170,11 +168,19 @@ export default function PainterlyCanopy({
     tmx = mx = W / 2; tmy = my = H / 2;
     raf = requestAnimationFrame(frame);
 
+    // Auto-recover if the GPU drops the context (instead of the browser's
+    // "WebGL hit a snag" placeholder).
+    const onLost = (e: Event) => { e.preventDefault(); cancelAnimationFrame(raf); };
+    const onRestored = () => { buildGL(); resize(); last = performance.now(); raf = requestAnimationFrame(frame); };
+    cv.addEventListener("webglcontextlost", onLost);
+    cv.addEventListener("webglcontextrestored", onRestored);
+
     return () => {
       cancelAnimationFrame(raf);
       window.removeEventListener("resize", resize);
       window.removeEventListener("pointermove", onMove);
-      window.removeEventListener("pointerdown", onDown);
+      cv.removeEventListener("webglcontextlost", onLost);
+      cv.removeEventListener("webglcontextrestored", onRestored);
       gl.getExtension("WEBGL_lose_context")?.loseContext();
     };
   }, [radius, green, speed]);

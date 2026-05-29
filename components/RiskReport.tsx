@@ -153,6 +153,26 @@ export default function RiskReport({
       </Section>
       )}
 
+      {/* ecological state — condensed gauge + terse good/concerning lines */}
+      {show("eco") && report.eco && (
+      <Section title="Ökoloogiline seisund" defaultOpen>
+        <div className="mb-3">
+          <div className="mb-1 flex items-baseline justify-between">
+            <span className="text-xs text-[#14130f]/50">Ökoloogiline väärtus</span>
+            <span className="text-sm font-semibold">
+              {report.eco.score}
+              <span className="text-[#14130f]/40">/100</span>
+            </span>
+          </div>
+          <div className="h-2 w-full bg-black/10">
+            <div className="h-full bg-[#14130f]" style={{ width: `${report.eco.score}%` }} />
+          </div>
+        </div>
+        <EcoList label="Hästi" items={report.eco.good} good />
+        <EcoList label="Murettekitav" items={report.eco.concerning} />
+      </Section>
+      )}
+
       {/* species */}
       {show("species") && (
       <Section title={`Kaitsealused liigid (${report.speciesTotal})`}>
@@ -247,6 +267,27 @@ function MiniStat({ n, label, tone }: { n: number; label: string; tone: "good" |
     <div className={`px-3 py-3 text-center ring-1 ${c}`}>
       <div className="text-2xl font-bold">{n}</div>
       <div className="text-xs">{label}</div>
+    </div>
+  );
+}
+
+function EcoList({ label, items, good = false }: { label: string; items: string[]; good?: boolean }) {
+  if (!items.length) return null;
+  return (
+    <div className="mt-3 first:mt-0">
+      <p className="mb-1.5 text-[10.5px] font-semibold uppercase tracking-wide text-[#14130f]/45">
+        {label}
+      </p>
+      <ul className="space-y-1.5">
+        {items.map((it, i) => (
+          <li key={i} className="flex items-start gap-2 text-sm text-[#14130f]/80">
+            <span
+              className={`mt-[6px] h-1.5 w-1.5 shrink-0 ${good ? "bg-[#14130f]" : "border border-[#14130f]"}`}
+            />
+            {it}
+          </li>
+        ))}
+      </ul>
     </div>
   );
 }
