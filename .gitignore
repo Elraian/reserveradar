@@ -1,0 +1,21 @@
+node_modules/
+.env.local
+.env
+.next/
+/out/
+next-env.d.ts
+*.tsbuildinfo
+.DS_Store
+
+# scratch: downloaded API responses, RT XML, Angular bundle, chat/dev logs
+data/
+*.log
+.next-dev.log
+parcel-test.json
+
+# tool-installed design skills (reconstructable from skills-lock.json)
+.agents/
+
+# internal working notes (central-box hostname, Viltrum refs, prod Supabase id)
+# — kept local, not published. Remove this line to include it.
+CONTEXT.md

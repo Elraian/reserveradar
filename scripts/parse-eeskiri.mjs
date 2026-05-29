@@ -1,0 +1,31 @@
+import { readFileSync } from "node:fs";
+
+const strip = (s) => s.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
+
+/** Parse RT määrus XML → array of { nr, title, text } per paragraph. */
+export function parseParagraphs(xml) {
+  const out = [];
+  for (const p of xml.matchAll(/<paragrahv\b[^>]*>([\s\S]*?)<\/paragrahv>/g)) {
+    const block = p[1];
+    const nr = strip(block.match(/<paragrahvNr\b[^>]*>([\s\S]*?)<\/paragrahvNr>/)?.[1] ?? "?");
+    const title = strip(block.match(/<paragrahvPealkiri\b[^>]*>([\s\S]*?)<\/paragrahvPealkiri>/)?.[1] ?? "");
+    const text = strip(
+      block
+        .replace(/<paragrahvNr\b[\s\S]*?<\/paragrahvNr>/, "")
+        .replace(/<paragrahvPealkiri\b[\s\S]*?<\/paragrahvPealkiri>/, "")
+    );
+    out.push({ nr, title, text });
+  }
+  return out;
+}
+
+// CLI demo: only when run directly (node scripts/parse-eeskiri.mjs <file>).
+const invokedDirectly = process.argv[1]?.replace(/\\/g, "/").endsWith("parse-eeskiri.mjs");
+if (invokedDirectly) {
+  const xml = readFileSync(process.argv[2] ?? "data/vahtrepa.xml", "utf8");
+  const paras = parseParagraphs(xml);
+  for (const p of paras.slice(0, 10)) {
+    console.log(`\n§${p.nr} ${p.title}\n  ${p.text.slice(0, 240)}${p.text.length > 240 ? "…" : ""}`);
+  }
+  console.log(`\nTotal paragraphs: ${paras.length}`);
+}

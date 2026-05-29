@@ -1,0 +1,343 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+@import "shadcn/tailwind.css";
+
+@custom-variant dark (&:is(.dark *));
+
+/* ============================================================================
+   Reserve Radar — forest-green, light-first identity.
+   Calm cartographic / quasi-legal feel. One accent (forest green), locked.
+   Chrome cues borrowed from a finance-terminal reference (mono eyebrows,
+   hairline borders, tick rows, live source dot) but warmed to a nature palette.
+   ============================================================================ */
+
+@theme inline {
+  --font-heading: var(--font-sans);
+  --font-sans: var(--font-sans);
+  --font-mono: var(--font-mono);
+
+  --color-sidebar-ring: var(--sidebar-ring);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar: var(--sidebar);
+  --color-chart-5: var(--chart-5);
+  --color-chart-4: var(--chart-4);
+  --color-chart-3: var(--chart-3);
+  --color-chart-2: var(--chart-2);
+  --color-chart-1: var(--chart-1);
+  --color-ring: var(--ring);
+  --color-input: var(--input);
+  --color-border: var(--border);
+  --color-destructive: var(--destructive);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-accent: var(--accent);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-muted: var(--muted);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-secondary: var(--secondary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-primary: var(--primary);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-popover: var(--popover);
+  --color-card-foreground: var(--card-foreground);
+  --color-card: var(--card);
+  --color-foreground: var(--foreground);
+  --color-background: var(--background);
+
+  /* Reserve Radar extensions — surfaces, brand, category semantics. */
+  --color-surface-1: var(--surface-1);
+  --color-surface-2: var(--surface-2);
+  --color-surface-3: var(--surface-3);
+  --color-forest: var(--forest);
+  --color-forest-soft: var(--forest-soft);
+  --color-hairline: var(--hairline);
+
+  --radius-sm: calc(var(--radius) * 0.5);
+  --radius-md: calc(var(--radius) * 0.75);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) * 1.4);
+  --radius-2xl: calc(var(--radius) * 1.8);
+  --radius-3xl: calc(var(--radius) * 2.2);
+}
+
+/* ----------------------------------------------------------------- LIGHT -- */
+:root {
+  --radius: 0.9rem; /* rounded-2xl feel per the brief */
+
+  --background: #f5f9f6; /* near-white with a faint pine wash */
+  --foreground: #15211a; /* deep forest ink */
+
+  --card: #ffffff;
+  --card-foreground: #15211a;
+  --popover: #ffffff;
+  --popover-foreground: #15211a;
+
+  /* Forest green primary — #1B7A43. Accent — #2FA866. */
+  --primary: #1b7a43;
+  --primary-foreground: #f4fbf6;
+  --forest: #1b7a43;
+  --forest-soft: #2fa866;
+
+  --secondary: #e9f1ec;
+  --secondary-foreground: #1f3a2a;
+  --muted: #eef4f0;
+  --muted-foreground: #5b6b61;
+  --accent: #e4efe8;
+  --accent-foreground: #155033;
+
+  --destructive: #b42318;
+
+  --border: #dde7e1;
+  --hairline: #e6ede8;
+  --input: #d3e0d8;
+  --ring: #2fa866;
+
+  /* Layered surfaces for the three-column chrome. */
+  --surface-1: #fbfdfc; /* sidebars, headers, panels */
+  --surface-2: #eef4f0; /* hover / nested cards */
+  --surface-3: #e2ece6; /* pressed / active */
+
+  /* Map / cartographic accents reused by overlay fills. */
+  --chart-1: #1b7a43;
+  --chart-2: #2fa866;
+  --chart-3: #b45309;
+  --chart-4: #1d4ed8;
+  --chart-5: #0e7490;
+
+  --sidebar: #fbfdfc;
+  --sidebar-foreground: #15211a;
+  --sidebar-primary: #1b7a43;
+  --sidebar-primary-foreground: #f4fbf6;
+  --sidebar-accent: #e9f1ec;
+  --sidebar-accent-foreground: #155033;
+  --sidebar-border: #dde7e1;
+  --sidebar-ring: #2fa866;
+
+  /* Overlay-chip category semantics (foreground / tint background). */
+  --cat-protection: #b42318;
+  --cat-protection-bg: rgba(180, 35, 24, 0.09);
+  --cat-zone: #b45309;
+  --cat-zone-bg: rgba(180, 83, 9, 0.10);
+  --cat-natura: #1d4ed8;
+  --cat-natura-bg: rgba(29, 78, 216, 0.10);
+  --cat-species: #92740b;
+  --cat-species-bg: rgba(146, 116, 11, 0.12);
+  --cat-benefit: #15803d;
+  --cat-benefit-bg: rgba(21, 128, 61, 0.10);
+  --cat-water: #0e7490;
+  --cat-water-bg: rgba(14, 116, 144, 0.10);
+  --cat-hazard: #475467;
+  --cat-hazard-bg: rgba(71, 84, 103, 0.10);
+  --cat-info: #5b6b61;
+  --cat-info-bg: rgba(91, 107, 97, 0.10);
+  --cat-utility: #7c3aed;
+  --cat-utility-bg: rgba(124, 58, 237, 0.10);
+  --cat-road: #57534e;
+  --cat-road-bg: rgba(87, 83, 78, 0.10);
+}
+
+/* ------------------------------------------------------------------ DARK -- */
+.dark {
+  --background: #0c1611;
+  --foreground: #e8efea;
+
+  --card: #11201a;
+  --card-foreground: #e8efea;
+  --popover: #11201a;
+  --popover-foreground: #e8efea;
+
+  --primary: #2fa866;
+  --primary-foreground: #07140d;
+  --forest: #3fbf78;
+  --forest-soft: #2fa866;
+
+  --secondary: #17271f;
+  --secondary-foreground: #d4e6db;
+  --muted: #16241d;
+  --muted-foreground: #8ba295;
+  --accent: #17271f;
+  --accent-foreground: #d4e6db;
+
+  --destructive: #f0623a;
+
+  --border: #213129;
+  --hairline: #1b2922;
+  --input: #28392f;
+  --ring: #2fa866;
+
+  --surface-1: #101c16;
+  --surface-2: #16241d;
+  --surface-3: #1d2e25;
+
+  --chart-1: #3fbf78;
+  --chart-2: #2fa866;
+  --chart-3: #e0a458;
+  --chart-4: #6ea0f5;
+  --chart-5: #4bb8d0;
+
+  --sidebar: #101c16;
+  --sidebar-foreground: #e8efea;
+  --sidebar-primary: #2fa866;
+  --sidebar-primary-foreground: #07140d;
+  --sidebar-accent: #17271f;
+  --sidebar-accent-foreground: #d4e6db;
+  --sidebar-border: #213129;
+  --sidebar-ring: #2fa866;
+
+  --cat-protection: #f08a7e;
+  --cat-protection-bg: rgba(240, 138, 126, 0.14);
+  --cat-zone: #e0a458;
+  --cat-zone-bg: rgba(224, 164, 88, 0.14);
+  --cat-natura: #8db2f7;
+  --cat-natura-bg: rgba(141, 178, 247, 0.14);
+  --cat-species: #d9c45f;
+  --cat-species-bg: rgba(217, 196, 95, 0.14);
+  --cat-benefit: #5bc98a;
+  --cat-benefit-bg: rgba(91, 201, 138, 0.14);
+  --cat-water: #5fc3d8;
+  --cat-water-bg: rgba(95, 195, 216, 0.14);
+  --cat-hazard: #9fb0bf;
+  --cat-hazard-bg: rgba(159, 176, 191, 0.14);
+  --cat-info: #8ba295;
+  --cat-info-bg: rgba(139, 162, 149, 0.14);
+  --cat-utility: #b794f6;
+  --cat-utility-bg: rgba(183, 148, 246, 0.14);
+  --cat-road: #a8a29e;
+  --cat-road-bg: rgba(168, 162, 158, 0.14);
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  body {
+    @apply bg-background text-foreground;
+  }
+  html {
+    @apply font-sans;
+  }
+}
+
+/* ============================================================================
+   Reserve Radar chrome utilities (used across the three-column shell).
+   ============================================================================ */
+@layer components {
+  /* Monospace eyebrow — small, uppercase, wide-tracked label. Used sparingly. */
+  .rr-eyebrow {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: var(--muted-foreground);
+    font-weight: 500;
+  }
+
+  .rr-mono {
+    font-family: var(--font-mono);
+    font-variant-numeric: tabular-nums slashed-zero;
+  }
+
+  /* Hairline tick row separating chrome regions — quiet cartographic cue. */
+  .rr-tick-row {
+    height: 7px;
+    background-image: linear-gradient(
+      to right,
+      var(--hairline) 0,
+      var(--hairline) 1px,
+      transparent 1px,
+      transparent 22px
+    );
+    background-size: 22px 100%;
+    opacity: 0.7;
+  }
+
+  /* Citation badge — renders (§N) refs from the answer as small mono chips. */
+  .rr-cite {
+    display: inline-flex;
+    align-items: center;
+    font-family: var(--font-mono);
+    font-size: 11px;
+    line-height: 1;
+    padding: 2px 5px;
+    border-radius: 5px;
+    background: var(--forest);
+    color: var(--primary-foreground);
+    letter-spacing: 0.02em;
+    vertical-align: baseline;
+    white-space: nowrap;
+  }
+
+  /* Live source dot — pulses to signal canonical/live data provenance. */
+  .rr-live-dot {
+    position: relative;
+    width: 6px;
+    height: 6px;
+    border-radius: 999px;
+    background: var(--forest-soft);
+    flex-shrink: 0;
+  }
+  .rr-live-dot::after {
+    content: "";
+    position: absolute;
+    inset: -2px;
+    border-radius: 999px;
+    animation: rr-pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+  }
+
+  /* Minimal scrollbar. */
+  .rr-scroll::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+  .rr-scroll::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  .rr-scroll::-webkit-scrollbar-thumb {
+    background: var(--border);
+    border-radius: 999px;
+    border: 2px solid var(--surface-1);
+  }
+  .rr-scroll::-webkit-scrollbar-thumb:hover {
+    background: var(--muted-foreground);
+  }
+}
+
+@keyframes rr-pulse {
+  0% {
+    box-shadow: 0 0 0 0 var(--forest-soft);
+    opacity: 0.7;
+  }
+  70% {
+    box-shadow: 0 0 0 6px transparent;
+    opacity: 0;
+  }
+  100% {
+    box-shadow: 0 0 0 0 transparent;
+    opacity: 0;
+  }
+}
+
+@keyframes rr-fadein {
+  from {
+    opacity: 0;
+    transform: translateY(3px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+.rr-fadein {
+  animation: rr-fadein 200ms cubic-bezier(0.4, 0, 0.2, 1) both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .rr-fadein,
+  .rr-live-dot::after {
+    animation: none !important;
+  }
+}
