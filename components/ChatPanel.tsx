@@ -14,29 +14,35 @@ const SUGGESTIONS = [
   "Mida tähendab piiranguvöönd?",
 ];
 
-// Stub assistant — the real Gemini hookup will be wired by the system side.
-// For now it echoes a grounded placeholder so the UX/layout is testable.
-function stubReply(report: ParcelReport): string {
-  return (
-    `Kinnistu ${report.tunnus} asub ${report.restrictions[0]?.area} ` +
-    `piiranguvööndis. Vastus koostatakse päris andmete ja kaitse-eeskirja ` +
-    `põhjal, kui AI-vestlus on ühendatud. (Demo: vastus on kohatäide.)`
-  );
-}
+// Same backend brain as the main app: the Gemini tool-calling agent (/api/ask).
+const BACKEND = process.env.NEXT_PUBLIC_BACKEND_URL ?? "http://localhost:3000";
 
 export default function ChatPanel({ report }: { report: ParcelReport }) {
   const [open, setOpen] = useState(false);
   const [msgs, setMsgs] = useState<Msg[]>([]);
   const [input, setInput] = useState("");
+  const [busy, setBusy] = useState(false);
 
-  function send(text: string) {
-    if (!text.trim()) return;
-    setMsgs((m) => [
-      ...m,
-      { role: "user", text },
-      { role: "assistant", text: stubReply(report) },
-    ]);
+  async function send(text: string) {
+    if (!text.trim() || busy) return;
     setInput("");
+    setBusy(true);
+    const next: Msg[] = [...msgs, { role: "user", text }];
+    setMsgs([...next, { role: "assistant", text: "…" }]);
+    try {
+      const res = await fetch(`${BACKEND}/api/ask`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ tunnus: report.tunnus, messages: next }),
+      });
+      const data = await res.json();
+      const reply = data.text || data.error || "Vabandust, ei õnnestunud vastust koostada.";
+      setMsgs([...next, { role: "assistant", text: reply }]);
+    } catch {
+      setMsgs([...next, { role: "assistant", text: "Ühenduse viga — kontrolli, et taustsüsteem töötab." }]);
+    } finally {
+      setBusy(false);
+    }
   }
 
   return (
