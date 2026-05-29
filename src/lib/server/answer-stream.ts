@@ -234,9 +234,9 @@ export async function* streamAnswer(tunnus: string, question = ""): AsyncGenerat
   try {
     const ai = new GoogleGenAI({ apiKey });
     // Try each model with backoff; fall through to the next on persistent
-    // overload (503 "high demand"). 2.5-flash first (stable, ample capacity).
+    // overload (503 "high demand"). The model name is an implementation detail —
+    // never surfaced to the user.
     let stream;
-    let usedModel = MODELS[0];
     let lastErr: unknown;
     for (let m = 0; m < MODELS.length && !stream; m++) {
       const model = MODELS[m];
@@ -256,7 +256,6 @@ export async function* streamAnswer(tunnus: string, question = ""): AsyncGenerat
               thinkingConfig: { thinkingBudget: -1, includeThoughts: true },
             },
           });
-          usedModel = model;
           break;
         } catch (e) {
           lastErr = e;
@@ -269,12 +268,13 @@ export async function* streamAnswer(tunnus: string, question = ""): AsyncGenerat
           break; // give up on this model → try next in chain
         }
       }
-      if (!stream && m < MODELS.length - 1) {
-        yield { type: "tool_result", id: synthId, ok: true, detail: `vahetan mudelit: ${MODELS[m + 1]}…` };
-      }
     }
     if (!stream) throw lastErr ?? new Error("mudel ei vastanud");
-    yield { type: "tool_result", id: synthId, ok: true, detail: `mudel: ${usedModel}` };
+    // Keep the synth step SPINNING (no tool_result yet) through the model's
+    // think-time + token stream, so the UI shows live progress instead of a
+    // frozen step that suddenly dumps the whole answer.
+    let sawThinking = false;
+    let sawText = false;
     for await (const chunk of stream) {
       // Separate thought parts (reasoning) from answer text. Gemini marks
       // thinking parts with `thought: true` when includeThoughts is on.
@@ -282,12 +282,19 @@ export async function* streamAnswer(tunnus: string, question = ""): AsyncGenerat
       for (const p of parts) {
         if (typeof p.text !== "string" || !p.text) continue;
         if ((p as { thought?: boolean }).thought) {
+          if (!sawThinking) {
+            sawThinking = true;
+            yield { type: "tool_call", id: synthId, name: "AI süntees", detail: "Mõtlen läbi kitsendused ja eeskirja…" };
+          }
           yield { type: "reasoning", content: p.text };
         } else {
+          sawText = true;
           yield { type: "text", content: p.text };
         }
       }
     }
+    // Answer fully streamed → now mark the step done.
+    yield { type: "tool_result", id: synthId, ok: sawText, detail: "Vastus koostatud" };
   } catch (e) {
     yield { type: "tool_result", id: synthId, ok: false, detail: "Süntees ebaõnnestus" };
     yield {
