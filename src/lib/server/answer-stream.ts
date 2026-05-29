@@ -84,15 +84,28 @@ function buildContext(
 
   // Non-nature kitsendused (from the Maa-amet kitsenduste API): power lines,
   // roads, water/nitrate areas. These apply to EVERY parcel, protected or not.
+  const infoOther = [
+    ...new Set(
+      (byCat.info ?? [])
+        .filter((a) => a.layer !== "maaamet:karuputk")
+        .map((a) => a.nimi || a.label),
+    ),
+  ];
   const muud = [
     ...names("utility").map((n) => `Taristu: ${n}`),
     ...names("road").map((n) => `Tee: ${n}`),
     ...names("water").map((n) => `Vesi/põhjavesi: ${n}`),
-    ...names("info").map((n) => `Muu: ${n}`),
+    ...infoOther.map((n) => `Muu: ${n}`),
   ];
   const muudLine = muud.length
     ? `MUUD KITSENDUSED (taristu, teed, vesi): ${muud.join("; ")}`
     : "Muid kitsendusi (taristu, teed, vesi) ei tuvastatud.";
+
+  // Karuputk (invasive hogweed) — its own line; control is a legal obligation.
+  const karuputk = (byCat.info ?? []).filter((a) => a.layer === "maaamet:karuputk");
+  const karuputkLine = karuputk.length
+    ? `KARUPUTK (invasiivne võõrliik): ${karuputk.length} koloonia(t) kinnistul (${[...new Set(karuputk.map((a) => a.nimi).filter(Boolean))].join("; ")}). Karuputke tõrje on kohustuslik; maa majandamine on lubatud vaid kui leviku vastu rakendatakse meetmeid.`
+    : null;
 
   const paraLines = (eeskiri?.paragraphs ?? [])
     .map((p) => `§${p.nr} ${p.title}\n${p.text}`)
@@ -107,7 +120,7 @@ VÖÖND: ${zone}
 KAITSEALAD: ${protection.join("; ") || "(puuduvad)"}
 NATURA 2000: ${natura.join("; ") || "(ei kuulu)"}
 ${speciesLine}
-${muudLine}
+${muudLine}${karuputkLine ? `\n${karuputkLine}` : ""}
 
 KAITSE-EESKIRI (${eeskiri?.aktId ?? "?"}, ${eeskiri?.url ?? ""}):
 ${paraLines || "(kaitse-eeskirja ei kohaldu või ei leitud)"}

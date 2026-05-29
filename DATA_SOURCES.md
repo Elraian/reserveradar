@@ -51,6 +51,8 @@ Protected areas, Natura, species, water, heritage. Host: `https://gsavalik.envir
 | `eelis:kr_loodusala` / `kr_linnuala` | Natura 2000 (habitat / bird) | ✅ |
 | `eelis:kr_piirang` | Piiranguvööndid (→ zone detection) | ✅ |
 | `eelis:kr_looduslik_skv` / `kr_hooldatav_skv` | Sihtkaitsevööndid | ✅ |
+| `eelis:kr_reservaat` | Reservaadid (rangeim — majandus keelatud) | ✅ |
+| `eelis:kr_yksikobjektid` / `kr_yksikobjekti_kaitsetsoon` | Kaitsealused üksikobjektid + kaitsetsoon | ✅ |
 | `eelis:kr_taimed_iii` / `kr_loomad_iii` / `kr_seened_samblikud_iii` | III kaitsekategooria liigid | ✅ |
 | `eelis:kr_vep` | Vääriselupaigad (VEP) | ✅ |
 | `eelis:toetus_mets` | LK metsahüvitised (**toetused!**) | 🟡 add — positive signal |
@@ -59,6 +61,9 @@ Protected areas, Natura, species, water, heritage. Host: `https://gsavalik.envir
 | `eelis:kr_yleujutusohuga_ala` / `kr_jaakreostus` | Üleujutus / jääkreostus | 🟡 add |
 
 *Full layer list (~90): add `?request=GetCapabilities` to the WFS URL.*
+
+### 3b. Maa-amet karuputk (invasive hogweed) ✅
+Same GeoServer, workspace `maaamet`. `maaamet:karuputk` — hogweed colonies (polygon) with `seisund` (tõrjutav/hävinud), `torjemeetod`, `pindala`, `raskusaste`. Surfaced as a "Võõrliik" card (orange on the map). Source app: `xgis.maaamet.ee/xgis2/page/app/karuputk`. Managing land with a colony is allowed only while spread is actively controlled.
 
 ---
 

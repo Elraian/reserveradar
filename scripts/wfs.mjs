@@ -5,6 +5,9 @@ const HOSTS = {
   kataster: "https://gsavalik.envir.ee/geoserver/kataster/wfs",
   eelis: "https://gsavalik.envir.ee/geoserver/eelis/wfs",
   metsaregister: "https://gsavalik.envir.ee/geoserver/metsaregister/wfs",
+  // Maa-amet karuputke (hogweed) colonies live in the "maaamet" workspace on
+  // the same GeoServer; the root /geoserver/wfs serves all workspaces.
+  maaamet: "https://gsavalik.envir.ee/geoserver/wfs",
 };
 
 function workspaceOf(layer) {
@@ -20,18 +23,32 @@ function workspaceOf(layer) {
  */
 export async function getFeatures(layer, opts = {}) {
   const { cql, bbox, count = 50, srs = "EPSG:3301" } = opts;
-  const url = new URL(HOSTS[workspaceOf(layer)]);
-  url.searchParams.set("service", "WFS");
-  url.searchParams.set("version", "2.0.0");
-  url.searchParams.set("request", "GetFeature");
-  url.searchParams.set("typeNames", layer);
-  url.searchParams.set("outputFormat", "application/json");
-  url.searchParams.set("srsName", srs);
-  url.searchParams.set("count", String(count));
-  if (cql) url.searchParams.set("CQL_FILTER", cql);
-  if (bbox) url.searchParams.set("bbox", bbox);
+  const endpoint = HOSTS[workspaceOf(layer)];
+  const params = new URLSearchParams({
+    service: "WFS",
+    version: "2.0.0",
+    request: "GetFeature",
+    typeNames: layer,
+    outputFormat: "application/json",
+    srsName: srs,
+    count: String(count),
+  });
+  if (cql) params.set("CQL_FILTER", cql);
+  if (bbox) params.set("bbox", bbox);
 
-  const res = await fetch(url, { headers: { "User-Agent": "ReserveRadar/0.1 (hackathon)" } });
+  // Complex parcels (hundreds of vertices) make the INTERSECTS WKT thousands of
+  // chars long, blowing the GET URL limit → HTTP 400. POST the same params as a
+  // form body when the query is large, so spatial filters work for ANY parcel.
+  const qs = params.toString();
+  const headers = { "User-Agent": "ReserveRadar/0.1 (hackathon)" };
+  const res =
+    qs.length > 1800
+      ? await fetch(endpoint, {
+          method: "POST",
+          headers: { ...headers, "Content-Type": "application/x-www-form-urlencoded" },
+          body: qs,
+        })
+      : await fetch(`${endpoint}?${qs}`, { headers });
   if (!res.ok) {
     const body = await res.text().catch(() => "");
     throw new Error(`WFS ${layer} HTTP ${res.status}: ${body.slice(0, 300)}`);
@@ -50,7 +67,7 @@ export async function getParcel(tunnus) {
 }
 
 // Geometry attribute name differs per workspace.
-const GEOM_ATTR = { kataster: "geom", eelis: "shape", metsaregister: "shape" };
+const GEOM_ATTR = { kataster: "geom", eelis: "shape", metsaregister: "shape", maaamet: "geom" };
 
 // EPSG:3301 (L-EST97) is defined northing-first. GeoJSON emits (easting, northing),
 // but CQL WKT expects (northing, easting) — so swap when building WKT literals.

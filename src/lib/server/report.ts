@@ -108,6 +108,7 @@ function deriveEco(
   if (dominant > 0.85 && fF > 0.85) { score -= 8; concerning.push("Ühetaoline metsamaa — vähem elupaiku kui mosaiikmaastikul."); }
   if (fO > 0.4) { score -= 8; concerning.push("Suur osa kinnistust on hoonestatud/muu maa."); }
   if (infra > 0) { score -= Math.min(8, infra * 4); concerning.push("Tehnovõrgud/teed killustavad elupaika."); }
+  if (areas.some((a) => a.layer === "maaamet:karuputk")) { score -= 6; concerning.push("Karuputke koloonia — invasiivne võõrliik, tõrje kohustuslik."); }
   if (!natura && !has("protection") && uniq === 0) { score -= 6; concerning.push("Teadaolevad loodusväärtused puuduvad — intensiivse kasutuse risk."); }
 
   if (!good.length) good.push("Olulisi looduskaitselisi väärtusi ei tuvastatud.");
@@ -204,6 +205,33 @@ export async function buildReport(tunnus: string) {
       // "Open the source" — the official Maa-amet kitsenduste page for this parcel.
       cardUrl: kitsendusedUrl,
       geometry: reproject3301to4326(r.geom ?? null), // 4326 for the map
+    });
+  }
+
+  // Karuputke (hogweed) colonies — from the EELIS sweep (maaamet:karuputk),
+  // attached by resolveOverlays. Aggregate into one card + combined geometry so
+  // the map draws every colony in one invasive-species colour.
+  const karuputkAreas = (panel?.areas ?? []).filter((a) => a.layer === "maaamet:karuputk");
+  if (karuputkAreas.length) {
+    const polys: number[][][][] = [];
+    for (const a of karuputkAreas) {
+      const g = a.geometry as { type: string; coordinates: unknown } | null;
+      if (g?.type === "Polygon") polys.push(g.coordinates as number[][][]);
+      else if (g?.type === "MultiPolygon") polys.push(...(g.coordinates as number[][][][]));
+    }
+    const seisundid = [...new Set(karuputkAreas.map((a) => a.nimi).filter(Boolean))];
+    restrictions.push({
+      category: "Võõrliik",
+      catKey: "vooras", // drives map colour
+      title: karuputkAreas.length > 1 ? `Karuputke kolooniad (${karuputkAreas.length})` : "Karuputke koloonia",
+      area: `Invasiivne võõrliik${seisundid.length ? " · " + seisundid.join("; ") : ""}`,
+      areaM2: 0,
+      coveragePct: 0,
+      severity: "amber",
+      rule: "Karuputke tõrje on kohustuslik (Looduskaitseseadus)",
+      ruleUrl: "https://www.riigiteataja.ee/akt/LKS",
+      cardUrl: "https://xgis.maaamet.ee/xgis2/page/app/karuputk",
+      geometry: polys.length ? { type: "MultiPolygon", coordinates: polys } : null,
     });
   }
 

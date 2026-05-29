@@ -7,6 +7,7 @@ import "server-only";
 import { getFeatures, getParcel, geojsonToWkt } from "@scripts/wfs.mjs";
 import { getProtectionAreas } from "@scripts/overlays.mjs";
 import { getKitsendused } from "@scripts/kitsendused.mjs";
+import { getKaruputk } from "@scripts/karuputk.mjs";
 import { reproject3301to4326 } from "./geo";
 import type { AreaOverlay, Category, ParcelGeometry, ParcelResult } from "@/lib/types";
 
@@ -158,6 +159,26 @@ export async function resolveOverlays(tunnus: string): Promise<OverlaySweep> {
         kr_kood: r.kkr ?? null,
         tyyp: null,
         geom4326: reproject3301to4326(r.geom ?? null), // for the map
+      });
+    }
+  }
+
+  // Karuputke (hogweed) colonies — invasive species. Maa-amet layer, queried
+  // by the parcel polygon (3301). Surfaced as an info-category overlay so it
+  // shows on the map + in the answer; managing a parcel with a colony is only
+  // allowed while the spread is being controlled.
+  if (kits?.geometry) {
+    const colonies = await getKaruputk(kits.geometry).catch(() => []);
+    for (const k of colonies as Array<{ seisund?: string | null; torjemeetod?: string | null; koloonia_id?: string | null; geom?: { type: string; coordinates: unknown } | null }>) {
+      const detail = [k.seisund, k.torjemeetod].filter(Boolean).join(", ");
+      extra.push({
+        layer: "maaamet:karuputk",
+        category: "info",
+        label: "Karuputke koloonia",
+        nimi: detail || "invasiivne võõrliik",
+        kr_kood: k.koloonia_id ?? null,
+        tyyp: null,
+        geom4326: reproject3301to4326(k.geom ?? null),
       });
     }
   }
