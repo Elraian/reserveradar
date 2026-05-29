@@ -114,7 +114,19 @@ export function ParcelMap({ parcel }: { parcel: ParcelResult }) {
         id: "overlay-line",
         type: "line",
         source: "overlays",
-        paint: { "line-color": ["get", "color"], "line-width": 1, "line-opacity": 0.5 },
+        paint: { "line-color": ["get", "color"], "line-width": 2.5, "line-opacity": 0.85 },
+      });
+      // Point features (boreholes, single objects, species locations).
+      map.addLayer({
+        id: "overlay-point",
+        type: "circle",
+        source: "overlays",
+        paint: {
+          "circle-radius": 4.5,
+          "circle-color": ["get", "color"],
+          "circle-stroke-width": 1.5,
+          "circle-stroke-color": "#fff",
+        },
       });
 
       // Parcel polygon (on top, bold forest outline).

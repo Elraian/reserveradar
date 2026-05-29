@@ -7,6 +7,7 @@ import "server-only";
 import { getFeatures, getParcel, geojsonToWkt } from "@scripts/wfs.mjs";
 import { getProtectionAreas } from "@scripts/overlays.mjs";
 import { getKitsendused } from "@scripts/kitsendused.mjs";
+import { reproject3301to4326 } from "./geo";
 import type { AreaOverlay, Category, ParcelGeometry, ParcelResult } from "@/lib/types";
 
 // kitsendused.mjs categories → UI Category. Nature ('looduskaitse') and species
@@ -31,6 +32,8 @@ type RawArea = {
   nimi?: string | null;
   kr_kood?: string | null;
   tyyp?: string | null;
+  /** Pre-reprojected 4326 geometry (for kitsendused features that aren't EELIS layers). */
+  geom4326?: GeoJSON.Geometry | null;
 };
 
 /**
@@ -137,6 +140,7 @@ export async function resolveOverlays(tunnus: string): Promise<OverlaySweep> {
       featureCode?: string | null;
       kkr?: string | null;
       area_m2?: number | null;
+      geom?: { type: string; coordinates: unknown } | null;
     }>) {
       const category = KITS_CAT_MAP[r.category];
       if (!category) continue; // nature/species → owned by the EELIS sweep
@@ -151,6 +155,7 @@ export async function resolveOverlays(tunnus: string): Promise<OverlaySweep> {
         nimi: r.name ?? null,
         kr_kood: r.kkr ?? null,
         tyyp: null,
+        geom4326: reproject3301to4326(r.geom ?? null), // for the map
       });
     }
   }
@@ -184,9 +189,11 @@ export async function enrichGeometry(
           nimi: a.nimi ?? null,
           kr_kood: a.kr_kood ?? null,
           tyyp: a.tyyp ?? null,
-          geometry: null,
+          // kitsendused features carry their own reprojected geometry; nature
+          // areas get the full polygon fetched from EELIS by KKR code.
+          geometry: a.geom4326 ?? null,
         };
-        if (FILL_CATEGORIES.has(a.category) && a.kr_kood && !seenCodes.has(a.kr_kood)) {
+        if (!base.geometry && FILL_CATEGORIES.has(a.category) && a.kr_kood && !seenCodes.has(a.kr_kood)) {
           seenCodes.add(a.kr_kood);
           base.geometry = await overlayGeometry4326(a.layer, a.kr_kood);
         }
@@ -207,7 +214,7 @@ export function toAreaOverlays(areas: RawArea[]): AreaOverlay[] {
     nimi: a.nimi ?? null,
     kr_kood: a.kr_kood ?? null,
     tyyp: a.tyyp ?? null,
-    geometry: null,
+    geometry: a.geom4326 ?? null,
   }));
 }
 
