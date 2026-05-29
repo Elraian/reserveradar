@@ -5,9 +5,16 @@
 // Deterministic + fast (no LLM call here; the conversational answer is /api/chat).
 import "server-only";
 import { getKitsendused } from "@scripts/kitsendused.mjs";
+import { getParcel } from "@scripts/wfs.mjs";
 import { resolveEeskiriAktSearch } from "@scripts/rt.mjs";
 import { resolveParcel } from "./parcel";
 import { reproject3301to4326 } from "./geo";
+
+// Title-case an UPPERCASE cadaster enum like "MAATULUNDUSMAA" → "Maatulundusmaa".
+function titleCase(s: string): string {
+  return s ? s.charAt(0).toUpperCase() + s.slice(1).toLowerCase() : s;
+}
+const num = (v: unknown): number => (typeof v === "number" && isFinite(v) ? v : 0);
 
 type Severity = "red" | "amber" | "green";
 
@@ -46,6 +53,68 @@ function polygonArea3301(geom: { type: string; coordinates: number[][][] | numbe
   return 0;
 }
 
+// Deterministic ecological score (0–100) + terse good/concerning bullets,
+// derived purely from the overlap data we already fetched — no extra request,
+// no LLM. Higher = ecologically richer / lower disturbance.
+// Parcel-level proxy of the UTartu "rohemeeter" landscape index. We can't match
+// its 500 m / 70-layer model, so this is deliberately conservative: a low
+// baseline, capped positive contributions (designation ≠ guaranteed condition),
+// and several condition/disturbance penalties. Designation alone tops out in the
+// ~70s; only diverse, undisturbed land approaches the high end.
+function deriveEco(
+  areas: { category?: string; natura?: boolean; label?: string; nimi?: string | null; layer?: string }[],
+  restrictions: Array<Record<string, unknown>>,
+  species: Array<{ latin?: string; et?: string }>,
+  cover: { forestM2: number; grassM2: number; otherM2: number; areaM2: number },
+): { score: number; good: string[]; concerning: string[] } {
+  const good: string[] = [];
+  const concerning: string[] = [];
+  let score = 30; // ordinary, unremarkable land
+
+  const has = (cat: string) => areas.some((a) => a.category === cat);
+  const text = (a: { label?: string; nimi?: string | null; layer?: string }) =>
+    `${a.label ?? ""} ${a.nimi ?? ""} ${a.layer ?? ""}`.toLowerCase();
+  const natura = has("natura") || areas.some((a) => a.natura);
+  const uniq = species.length; // de-duplicated by latin name
+
+  const wetArea = has("water") || areas.some((a) => /märg|\bsoo\b|raba|luht/.test(text(a)));
+  const wetSpecies = species.some((s) => /soo-|palustris|märg/i.test(`${s.et ?? ""} ${s.latin ?? ""}`));
+  const wetland = wetArea || wetSpecies;
+
+  const drainage =
+    areas.some((a) => /maaparand|kuivend|kraav/.test(text(a))) ||
+    restrictions.some((r) => /maaparand|kuivend|kraav/.test(String(r.title ?? r.area ?? "").toLowerCase()));
+  const hazard = has("hazard") || areas.some((a) => /reostus|saaste/.test(text(a)));
+  const infra = areas.filter((a) => a.category === "utility" || a.category === "road").length;
+
+  // Land-cover mix (homogenisation is a key rohemeeter negative).
+  const total = cover.areaM2 || cover.forestM2 + cover.grassM2 + cover.otherM2 || 1;
+  const fF = cover.forestM2 / total, fG = cover.grassM2 / total, fO = cover.otherM2 / total;
+  const coverTypes = [fF, fG, fO].filter((x) => x > 0.05).length;
+  const dominant = Math.max(fF, fG, fO);
+
+  // ── Positives (capped, diminishing) ──
+  if (has("protection")) { score += 10; good.push("Asub kaitsealal — elurikkus tavaliselt paremas seisus."); }
+  if (natura) { score += 12; good.push("Natura 2000 — üleeuroopalise tähtsusega elupaik."); }
+  if (wetland) { score += 7; good.push("Märgala-/sooelupaik — kõrge loodusväärtus."); }
+  if (uniq > 0) { score += Math.min(10, Math.round(uniq * 1.3)); good.push(`${uniq} kaitsealust liiki kinnistul.`); }
+  if (coverTypes >= 3) { score += 6; good.push("Mitmekesine maakate (mets, niit, muu) toetab elurikkust."); }
+  else if (coverTypes === 2) { score += 2; }
+
+  // ── Negatives (harsher, more of them) ──
+  if (drainage && wetland) { score -= 22; concerning.push("Kuivenduskraavid mõjutavad märgala veerežiimi."); }
+  else if (drainage) { score -= 10; concerning.push("Kinnistul on maaparandussüsteem."); }
+  if (hazard) { score -= 14; concerning.push("Läheduses on registreeritud reostusoht."); }
+  if (dominant > 0.85 && fF > 0.85) { score -= 8; concerning.push("Ühetaoline metsamaa — vähem elupaiku kui mosaiikmaastikul."); }
+  if (fO > 0.4) { score -= 8; concerning.push("Suur osa kinnistust on hoonestatud/muu maa."); }
+  if (infra > 0) { score -= Math.min(8, infra * 4); concerning.push("Tehnovõrgud/teed killustavad elupaika."); }
+  if (!natura && !has("protection") && uniq === 0) { score -= 6; concerning.push("Teadaolevad loodusväärtused puuduvad — intensiivse kasutuse risk."); }
+
+  if (!good.length) good.push("Olulisi looduskaitselisi väärtusi ei tuvastatud.");
+
+  return { score: Math.max(0, Math.min(100, score)), good: good.slice(0, 4), concerning: concerning.slice(0, 3) };
+}
+
 function speciesGroup(name: string): "animal" | "plant" | "fungi" {
   const n = name.toLowerCase();
   if (/silmik|liblik|kärbes|mardikas|konn|nahkhiir|lind/.test(n)) return "animal";
@@ -61,11 +130,16 @@ function splitLatinEt(name: string): { latin: string; et: string } {
 
 /** Build Lennart's ParcelReport from the live backend. */
 export async function buildReport(tunnus: string) {
-  const [kits, panel] = await Promise.all([
+  const [kits, panel, parcelFeat] = await Promise.all([
     getKitsendused(tunnus),
     resolveParcel(tunnus).catch(() => null),
+    getParcel(tunnus).catch(() => null), // ky_kehtiv feature → cadaster attributes
   ]);
   if (!kits.found) return { found: false, tunnus };
+
+  // Cadaster attributes (sihtotstarve, land-cover areas, owner type, tax value)
+  // come from the same ky_kehtiv fetch — no extra source needed.
+  const p = (parcelFeat?.properties ?? {}) as Record<string, unknown>;
 
   // Canonical "see the source" link: the official Maa-amet kitsenduste page
   // for this exact parcel (every restriction here is visible there).
@@ -157,12 +231,12 @@ export async function buildReport(tunnus: string) {
     address: addr[0] ?? "",
     municipality: addr.slice(1, 3).join(", "),
     county: addr[addr.length - 1] ?? "",
-    useType: "Maatulundusmaa",
-    areaM2: Math.round(parcelM2),
-    forestM2: 0, grassM2: 0, otherM2: 0,
-    owner: "—",
-    taxValue: 0,
-    registry: "",
+    useType: p.siht1 ? titleCase(String(p.siht1)) : "Maatulundusmaa",
+    areaM2: num(p.pindala) || Math.round(parcelM2),
+    forestM2: num(p.mets), grassM2: num(p.rohumaa), otherM2: num(p.muumaa),
+    owner: p.omvorm ? String(p.omvorm) : "—",
+    taxValue: num(p.maks_hind),
+    registry: p.kinnistu != null ? String(p.kinnistu) : "",
     overall,
     center,
     geometry: g ?? null,
@@ -184,5 +258,16 @@ export async function buildReport(tunnus: string) {
       forbidden: restrictions.filter((r) => r.severity === "red").map((r) => String(r.title)),
       consider: restrictions.filter((r) => r.severity === "amber").map((r) => String(r.title)),
     },
+    eco: deriveEco(
+      panel?.areas ?? [],
+      restrictions,
+      species as Array<{ latin?: string; et?: string }>,
+      {
+        forestM2: num(p.mets),
+        grassM2: num(p.rohumaa),
+        otherM2: num(p.muumaa),
+        areaM2: num(p.pindala) || Math.round(parcelM2),
+      },
+    ),
   };
 }
