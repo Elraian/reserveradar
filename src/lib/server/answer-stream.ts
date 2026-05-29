@@ -215,10 +215,15 @@ export async function* streamAnswer(tunnus: string): AsyncGenerator<ChatStreamEv
             contents: [{ role: "user", parts: [{ text: context }] }],
             config: {
               systemInstruction: SYSTEM,
-              maxOutputTokens: 700,
+              // Thinking tokens count toward this cap (Gemini 2.5), so 700 left
+              // the answer truncated after the reasoning. Raise it so the model
+              // has room for visible reasoning AND the full cited answer.
+              maxOutputTokens: 3000,
               // Visible thinking: auto budget + return thought parts so the UI
               // can show the model's reasoning (streamed as `reasoning` events).
-              thinkingConfig: { thinkingBudget: -1, includeThoughts: true },
+              // Cap thinking so it doesn't consume the whole output budget and
+              // truncate the answer (-1 = dynamic/unbounded ate ~2700 tokens).
+              thinkingConfig: { thinkingBudget: 512, includeThoughts: true },
             },
           });
           usedModel = model;
