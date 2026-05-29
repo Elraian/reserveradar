@@ -1,0 +1,95 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+
+/* shadcn/ui design tokens (Tailwind v4 CSS-first config) — cream + ink monochrome */
+:root {
+  --background: #f1f0ea;
+  --foreground: #14130f;
+  --border: #d9d7cc;
+  --input: #d9d7cc;
+  --ring: #14130f;
+  --popover: #ffffff;
+  --popover-foreground: #14130f;
+  --primary: #14130f;
+  --primary-foreground: #f1f0ea;
+  --secondary: #ffffff;
+  --secondary-foreground: #14130f;
+  --accent: #e7e5dc;
+  --accent-foreground: #14130f;
+  --muted: #e7e5dc;
+  --muted-foreground: #6b675c;
+  --destructive: #14130f;
+  --destructive-foreground: #f1f0ea;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+}
+
+:root {
+  --rr-bg: #f1f0ea;
+  --rr-bg-2: #e7e5dc;
+  --rr-ink: #14130f;
+}
+
+html,
+body {
+  height: 100%;
+}
+
+body {
+  background: var(--rr-bg);
+  color: var(--rr-ink);
+  font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto,
+    Helvetica, Arial, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* subtle cadastral-grid backdrop for the hero */
+.rr-grid {
+  background-image:
+    linear-gradient(rgba(20, 19, 15, 0.05) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(20, 19, 15, 0.05) 1px, transparent 1px);
+  background-size: 44px 44px;
+}
+
+.rr-fade-up {
+  animation: rrFadeUp 0.5s ease both;
+}
+@keyframes rrFadeUp {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* maplibre tweaks */
+.maplibregl-ctrl-attrib {
+  font-size: 10px;
+}
+.maplibregl-ctrl-group,
+.maplibregl-ctrl-group button,
+.maplibregl-ctrl-attrib,
+.maplibregl-ctrl-attrib-button {
+  border-radius: 0 !important;
+}

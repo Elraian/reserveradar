@@ -1,0 +1,107 @@
+"use client";
+
+import { useState } from "react";
+import type { ParcelReport } from "@/app/_data/sampleReport";
+
+interface Msg {
+  role: "user" | "assistant";
+  text: string;
+}
+
+const SUGGESTIONS = [
+  "Kas tohin siia maja ehitada?",
+  "Millal tohib metsa raiuda?",
+  "Mida tähendab piiranguvöönd?",
+];
+
+// Stub assistant — the real Gemini hookup will be wired by the system side.
+// For now it echoes a grounded placeholder so the UX/layout is testable.
+function stubReply(report: ParcelReport): string {
+  return (
+    `Kinnistu ${report.tunnus} asub ${report.restrictions[0]?.area} ` +
+    `piiranguvööndis. Vastus koostatakse päris andmete ja kaitse-eeskirja ` +
+    `põhjal, kui AI-vestlus on ühendatud. (Demo: vastus on kohatäide.)`
+  );
+}
+
+export default function ChatPanel({ report }: { report: ParcelReport }) {
+  const [open, setOpen] = useState(false);
+  const [msgs, setMsgs] = useState<Msg[]>([]);
+  const [input, setInput] = useState("");
+
+  function send(text: string) {
+    if (!text.trim()) return;
+    setMsgs((m) => [
+      ...m,
+      { role: "user", text },
+      { role: "assistant", text: stubReply(report) },
+    ]);
+    setInput("");
+  }
+
+  return (
+    <div className="pointer-events-none fixed bottom-4 right-4 z-20 flex flex-col items-end">
+      {open && (
+        <div className="rr-fade-up pointer-events-auto mb-3 flex h-[28rem] w-[22rem] flex-col overflow-hidden bg-white shadow-2xl ring-1 ring-black/10">
+          <div className="flex items-center justify-between bg-[#14130f] px-4 py-3 text-[#f1f0ea]">
+            <span className="font-semibold">Küsi Reserve Radarilt</span>
+            <button onClick={() => setOpen(false)} className="text-[#f1f0ea]/70 hover:text-[#f1f0ea]">✕</button>
+          </div>
+          <div className="flex-1 space-y-3 overflow-y-auto p-4">
+            {msgs.length === 0 && (
+              <div className="space-y-2">
+                <p className="text-sm text-[#14130f]/50">
+                  Küsi selle kinnistu kohta. Näiteks:
+                </p>
+                {SUGGESTIONS.map((q) => (
+                  <button
+                    key={q}
+                    onClick={() => send(q)}
+                    className="block w-full bg-black/5 px-3 py-2 text-left text-sm text-[#14130f]/80 ring-1 ring-black/10 hover:bg-black/10"
+                  >
+                    {q}
+                  </button>
+                ))}
+              </div>
+            )}
+            {msgs.map((m, i) => (
+              <div
+                key={i}
+                className={`max-w-[85%] px-3 py-2 text-sm ${
+                  m.role === "user"
+                    ? "ml-auto bg-[#14130f] text-[#f1f0ea]"
+                    : "bg-black/5 text-[#14130f]/80 ring-1 ring-black/10"
+                }`}
+              >
+                {m.text}
+              </div>
+            ))}
+          </div>
+          <form
+            onSubmit={(e) => {
+              e.preventDefault();
+              send(input);
+            }}
+            className="flex gap-2 border-t border-black/10 p-3"
+          >
+            <input
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              placeholder="Kirjuta küsimus…"
+              className="w-full bg-black/5 px-3 py-2 text-sm text-[#14130f] placeholder:text-[#14130f]/40 outline-none ring-1 ring-black/10 focus:ring-[#14130f]/40"
+            />
+            <button className="bg-[#14130f] px-3 py-2 text-sm text-[#f1f0ea] hover:bg-[#14130f]/85">
+              →
+            </button>
+          </form>
+        </div>
+      )}
+      <button
+        onClick={() => setOpen((o) => !o)}
+        className="pointer-events-auto flex items-center gap-2 bg-[#14130f] px-5 py-3 font-medium text-[#f1f0ea] shadow-lg ring-1 ring-black/10 transition hover:bg-[#14130f]/85"
+      >
+        Küsi lisaks
+      </button>
+    </div>
+  );
+}

@@ -1,0 +1,11 @@
+/node_modules
+/.next
+/out
+/build
+*.log
+.DS_Store
+.env*.local
+next-env.d.ts
+*.tsbuildinfo
+# large crawled dataset — keep out of git
+/data/kaitse-eeskirjad
