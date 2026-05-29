@@ -82,7 +82,7 @@ export default function PainterlyCanopy({
     const cv = canvasRef.current;
     if (!cv) return;
     const gl = cv.getContext("webgl", { antialias: true, alpha: false });
-    if (!gl) return;
+    if (!gl) { cv.style.opacity = "0"; return; } // no WebGL → CSS gradient fallback shows
 
     let u: Record<string, WebGLUniformLocation | null> = {};
 
@@ -120,7 +120,7 @@ export default function PainterlyCanopy({
 
     let DPR = 1, W = 1, H = 1;
     const resize = () => {
-      DPR = Math.min(window.devicePixelRatio || 1, 1.75);
+      DPR = Math.min(window.devicePixelRatio || 1, 1.5);
       W = Math.max(1, Math.floor(cv.clientWidth * DPR));
       H = Math.max(1, Math.floor(cv.clientHeight * DPR));
       cv.width = W; cv.height = H;
@@ -168,22 +168,58 @@ export default function PainterlyCanopy({
     tmx = mx = W / 2; tmy = my = H / 2;
     raf = requestAnimationFrame(frame);
 
-    // Auto-recover if the GPU drops the context (instead of the browser's
-    // "WebGL hit a snag" placeholder).
-    const onLost = (e: Event) => { e.preventDefault(); cancelAnimationFrame(raf); };
-    const onRestored = () => { buildGL(); resize(); last = performance.now(); raf = requestAnimationFrame(frame); };
+    // If the GPU drops the context, hide the canvas (revealing the CSS gradient
+    // behind it) instead of letting the browser paint its "WebGL hit a snag"
+    // robot. preventDefault keeps the context restorable; rebuild on restore.
+    const onLost = (e: Event) => {
+      e.preventDefault();
+      cancelAnimationFrame(raf);
+      cv.style.opacity = "0";
+    };
+    const onRestored = () => {
+      buildGL();
+      resize();
+      cv.style.opacity = "1";
+      last = performance.now();
+      raf = requestAnimationFrame(frame);
+    };
     cv.addEventListener("webglcontextlost", onLost);
     cv.addEventListener("webglcontextrestored", onRestored);
+
+    // Pause the loop while the tab is hidden — running WebGL in a backgrounded
+    // tab is a common trigger for the browser reclaiming the GPU context.
+    const onVis = () => {
+      if (document.hidden) {
+        cancelAnimationFrame(raf);
+      } else if (!gl.isContextLost()) {
+        last = performance.now();
+        raf = requestAnimationFrame(frame);
+      }
+    };
+    document.addEventListener("visibilitychange", onVis);
 
     return () => {
       cancelAnimationFrame(raf);
       window.removeEventListener("resize", resize);
       window.removeEventListener("pointermove", onMove);
+      document.removeEventListener("visibilitychange", onVis);
       cv.removeEventListener("webglcontextlost", onLost);
       cv.removeEventListener("webglcontextrestored", onRestored);
       gl.getExtension("WEBGL_lose_context")?.loseContext();
     };
   }, [radius, green, speed]);
 
-  return <canvas ref={canvasRef} className="fixed inset-0 -z-10 block h-full w-full" />;
+  // CSS gradient fallback sits behind the canvas; if WebGL is unavailable or the
+  // context is lost, the canvas fades out and this shows instead (no robot face).
+  return (
+    <div
+      className="pointer-events-none fixed inset-0 -z-10"
+      style={{ background: "radial-gradient(125% 125% at 50% 10%, #f1f0ea 45%, #e2ded0 100%)" }}
+    >
+      <canvas
+        ref={canvasRef}
+        className="block h-full w-full transition-opacity duration-500"
+      />
+    </div>
+  );
 }
