@@ -38,8 +38,13 @@ Vasta EESTI KEELES — LÜHIDALT JA SKANNITAVALT. Metsaomanik tahab kiiret vastu
 RANGED reeglid:
 - ÄRA kasuta tervitust ("Lugupeetud…") ega sissejuhatust. Alusta kohe sisuga.
 - Maksimaalselt ~120 sõna kokku.
+- PÕHIREEGEL — TUGINE AINULT ANDMETELE: räägi AINULT nendest kitsendustest, mis on allpool kontekstis loetletud.
+  ÄRA leiuta piiranguid. Kui KAITSEALAD = (puuduvad), siis kinnistu EI OLE kaitsealal — ÄRA maini kaitseala,
+  sihtkaitsevööndit ega piiranguvööndit ega nende raiekeelde. Kui ainus kitsendus on nt nitraaditundlik ala,
+  räägi AINULT sellest.
 - Vorming (Markdown):
-  **Raie:** üks lause — kas ja mis raie on lubatud (nt "Turberaie lubatud, lageraie keelatud (§15)").
+  **Raie:** LISA see rida AINULT siis, kui kontekstis on kaitseala/vöönd VÕI metsaga seotud kitsendus —
+  üks lause, kas ja mis raie on lubatud (nt "Turberaie lubatud, lageraie keelatud (§15)"). Muidu JÄTA see rida välja.
   **✅ Lubatud:** kuni 3 lühikest punkti.
   **⛔ Vajab luba / keelatud:** kuni 4 lühikest punkti, igaüks lõpus § või asutus (Keskkonnaamet / Elektrilevi / Transpordiamet).
 - Iga looduskaitse-väide viita §-le. ÄRA leiuta; kui eeskirjas pole, ütle "täpsusta Keskkonnaametiga".

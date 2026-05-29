@@ -5,9 +5,18 @@ import { AnimatePresence, motion } from "framer-motion";
 import { MessageCircle, X, Send, Sparkles } from "lucide-react";
 import type { ParcelReport } from "@/lib/sampleReport";
 
+interface Step {
+  id: string;
+  name: string;
+  detail: string;
+  done: boolean;
+  ok: boolean;
+}
+
 interface Msg {
   role: "user" | "assistant";
   text: string;
+  steps?: Step[];
 }
 
 // Suggestion chips, tailored to the parcel the user just searched. Built from
@@ -108,6 +117,21 @@ export default function ChatWidget({ report }: { report: ParcelReport }) {
         return next;
       });
 
+    // Update the live assistant message's visible tool-call list.
+    const upsertStep = (s: Partial<Step> & { id: string }) =>
+      setMsgs((m) => {
+        const next = [...m];
+        const last = next[next.length - 1];
+        if (last?.role !== "assistant") return next;
+        const steps = [...(last.steps ?? [])];
+        const i = steps.findIndex((x) => x.id === s.id);
+        if (i === -1)
+          steps.push({ id: s.id, name: s.name ?? "", detail: s.detail ?? "", done: false, ok: true });
+        else steps[i] = { ...steps[i], ...s };
+        next[next.length - 1] = { ...last, steps };
+        return next;
+      });
+
     try {
       const res = await fetch(`${BACKEND}/api/chat`, {
         method: "POST",
@@ -133,6 +157,10 @@ export default function ChatWidget({ report }: { report: ParcelReport }) {
           try {
             const evt = JSON.parse(json);
             if (evt.type === "text") append(evt.content);
+            else if (evt.type === "tool_call")
+              upsertStep({ id: evt.id, name: evt.name, detail: evt.detail });
+            else if (evt.type === "tool_result")
+              upsertStep({ id: evt.id, done: true, ok: evt.ok, detail: evt.detail });
             else if (evt.type === "error") append(`\n⚠️ ${evt.message}`);
           } catch {
             /* ignore partial frames */
@@ -150,7 +178,8 @@ export default function ChatWidget({ report }: { report: ParcelReport }) {
     busy &&
     msgs.length > 0 &&
     msgs[msgs.length - 1].role === "assistant" &&
-    msgs[msgs.length - 1].text === "";
+    msgs[msgs.length - 1].text === "" &&
+    !msgs[msgs.length - 1].steps?.length;
 
   return (
     <div className="pointer-events-none fixed bottom-5 left-5 z-30 flex flex-col items-start">
@@ -216,7 +245,10 @@ export default function ChatWidget({ report }: { report: ParcelReport }) {
 
               <AnimatePresence initial={false}>
                 {msgs.map((m, i) => {
-                  if (m.role === "assistant" && m.text === "") return null;
+                  // Hide an assistant message only when it has neither text nor
+                  // any tool steps yet (the typing-dots bubble covers that gap).
+                  if (m.role === "assistant" && m.text === "" && !m.steps?.length)
+                    return null;
                   return (
                     <motion.div
                       key={i}
@@ -230,7 +262,10 @@ export default function ChatWidget({ report }: { report: ParcelReport }) {
                       }`}
                     >
                       {m.role === "assistant" ? (
-                        <MessageBody text={m.text} />
+                        <>
+                          {m.steps?.length ? <StepList steps={m.steps} /> : null}
+                          <MessageBody text={m.text} />
+                        </>
                       ) : (
                         m.text
                       )}
@@ -346,6 +381,33 @@ function inline(text: string) {
       );
     return <span key={i}>{p}</span>;
   });
+}
+
+// Compact agent activity: each backend step (Kataster+EELIS, Riigi Teataja,
+// AI süntees) with a spinner while running and a ✓/· when done. Lets the user
+// see the tool calls behind the answer instead of a silent wait.
+function StepList({ steps }: { steps: Step[] }) {
+  return (
+    <div className="mb-2 space-y-1 border-b border-[#2f5d3a]/10 pb-2">
+      {steps.map((s) => (
+        <div key={s.id} className="flex items-start gap-2 text-[11px] leading-tight">
+          <span className="mt-[2px] shrink-0">
+            {!s.done ? (
+              <span className="inline-block h-2.5 w-2.5 animate-spin rounded-full border border-[#2f5d3a]/30 border-t-[#2f5d3a]" />
+            ) : s.ok ? (
+              <span className="text-[#2f5d3a]">✓</span>
+            ) : (
+              <span className="text-[#14130f]/40">·</span>
+            )}
+          </span>
+          <span className="text-[#14130f]/55">
+            <span className="font-medium text-[#14130f]/75">{s.name}</span>
+            {s.detail ? <span> — {s.detail}</span> : null}
+          </span>
+        </div>
+      ))}
+    </div>
+  );
 }
 
 function MessageBody({ text }: { text: string }) {

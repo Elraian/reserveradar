@@ -160,10 +160,29 @@ export async function resolveOverlays(tunnus: string): Promise<OverlaySweep> {
     }
   }
 
+  // Reconcile against the official aggregator. The EELIS WFS INTERSECTS can
+  // return a kaitseala/sihtkaitsevöönd that merely TOUCHES the parcel boundary
+  // (false positive), which then wrongly drives the answer ("sihtkaitsevööndis
+  // raie keelatud") and zone. kitsendused.kataster.ee is the legal source of
+  // truth — if it lists no looduskaitse restriction, the parcel is NOT in a
+  // protected area, so drop EELIS's adjacent protection/zone hits. Only when
+  // kitsendused actually responded (found); otherwise trust EELIS as before.
+  let eelisAreas = eelis.areas;
+  if (kits?.found) {
+    const kitsHasNature = (kits.restrictions as Array<{ category?: string }>).some(
+      (r) => r.category === "looduskaitse",
+    );
+    if (!kitsHasNature) {
+      eelisAreas = eelis.areas.filter(
+        (a) => a.category !== "protection" && a.category !== "zone",
+      );
+    }
+  }
+
   return {
     found: eelis.found || extra.length > 0,
     address: eelis.address ?? kits?.address ?? null,
-    areas: [...eelis.areas, ...extra],
+    areas: [...eelisAreas, ...extra],
   };
 }
 
