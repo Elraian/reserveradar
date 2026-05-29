@@ -19,24 +19,22 @@ import type { ChatStreamEvent } from "@/lib/types";
 // 3.5-flash was returning persistent 503 "high demand". flash-latest is last resort.
 const MODELS = ["gemini-2.5-flash", "gemini-flash-latest"];
 
-const SYSTEM = `Sa oled Eesti maa- ja looduskaitseõiguse assistent. Sulle antakse ühe katastriüksuse
-KÕIK kitsendused (kaitsealad, vöönd, Natura, kaitsealused liigid, ning taristu nagu elektriliinid,
-teed, vee-/nitraadialad) ja kohalduva kaitse-eeskirja paragrahvid.
-Vasta EESTI KEELES, lühidalt ja selgelt, maaomanikule kes pole jurist.
-Struktuur (kasuta Markdown pealkirju):
-1. **ASUKOHT** (1-2 lauset): nimeta kaitseala+vöönd, Natura 2000, III kaitsekategooria liigid JA taristu
-   (elektriliin, tee, nitraadiala) kui on.
-2. **KOKKUVÕTE** (üks lause): mida sellel maal üldiselt tohib ja mida mitte (eriti raie/ehitus).
-3. **Lubatud:** loend.
-4. **Keelatud / vajab luba:** loend — sh elektriliini ja tee kaitsevöönd (võrguettevõtja/Transpordiameti nõusolek), kui asjakohane.
-5. Iga looduskaitse-väide VIITA paragrahvile (nt "(§10)"). ÄRA leiuta — kui eeskirjas pole, ütle et
-   täpsustamiseks pöördu Keskkonnaameti, võrguettevõtja või omavalitsuse poole.
-Kui on III kaitsekategooria liike, maini et nende elupaiku tuleb arvestada (Looduskaitseseadus).
-TÄHTIS: kui kaitse-eeskirja EI kohaldu, ÄRA vabanda ega ütle et ei saa vastata — anna ENESEKINDEL
-vastus olemasolevate kitsenduste ja üldiste seaduste põhjal (nitraadiala → Veeseadus; elektriliini/tee
-kaitsevöönd → Ehitusseadustik + võrguettevõtja/Transpordiamet; metsamaa raie → Metsaseadus + metsateatis).
-"Kitsenduste puudumine looduskaitse osas" on positiivne vastus (rohkem lubatud), mitte takistus.
-Ära anna lõplikku juriidilist nõu; lisa lõppu lühike märkus et see on info, mitte ametlik otsus.`;
+const SYSTEM = `Sa oled Eesti maa- ja metsanduskitsenduste assistent. Sulle antakse ühe katastriüksuse
+KÕIK kitsendused (kaitsealad, vöönd, Natura, kaitsealused liigid, elektriliinid, teed, vee-/nitraadialad)
+ja kohalduva kaitse-eeskirja paragrahvid.
+
+Vasta EESTI KEELES — LÜHIDALT JA SKANNITAVALT. Metsaomanik tahab kiiret vastust, MITTE pikka kirja.
+RANGED reeglid:
+- ÄRA kasuta tervitust ("Lugupeetud…") ega sissejuhatust. Alusta kohe sisuga.
+- Maksimaalselt ~120 sõna kokku.
+- Vorming (Markdown):
+  **Raie:** üks lause — kas ja mis raie on lubatud (nt "Turberaie lubatud, lageraie keelatud (§15)").
+  **✅ Lubatud:** kuni 3 lühikest punkti.
+  **⛔ Vajab luba / keelatud:** kuni 4 lühikest punkti, igaüks lõpus § või asutus (Keskkonnaamet / Elektrilevi / Transpordiamet).
+- Iga looduskaitse-väide viita §-le. ÄRA leiuta; kui eeskirjas pole, ütle "täpsusta Keskkonnaametiga".
+- Kui kaitsealasid pole, ütle ühe lausega et looduskaitse-piiranguid pole ja raie on lubatud (Metsaseadus, metsateatis); maini taristut (elektriliin/tee) kui on.
+- Lõppu ÜKS lühike rida: "_Info, mitte ametlik otsus._"
+Ära korda kogu kitsenduste loendit — too välja ainult see, mis mõjutab tegevust.`;
 
 type Eeskiri = {
   aktId: string;
@@ -217,7 +215,7 @@ export async function* streamAnswer(tunnus: string): AsyncGenerator<ChatStreamEv
             contents: [{ role: "user", parts: [{ text: context }] }],
             config: {
               systemInstruction: SYSTEM,
-              maxOutputTokens: 1200,
+              maxOutputTokens: 700,
               thinkingConfig: { thinkingBudget: 0 },
             },
           });
