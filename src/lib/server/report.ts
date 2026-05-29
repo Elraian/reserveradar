@@ -5,7 +5,7 @@
 // Deterministic + fast (no LLM call here; the conversational answer is /api/chat).
 import "server-only";
 import { getKitsendused } from "@scripts/kitsendused.mjs";
-import { getParcel } from "@scripts/wfs.mjs";
+import { getParcel, geojsonToWkt, intersecting } from "@scripts/wfs.mjs";
 import { resolveEeskiriAktSearch } from "@scripts/rt.mjs";
 import { resolveParcel } from "./parcel";
 import { reproject3301to4326 } from "./geo";
@@ -141,6 +141,22 @@ export async function buildReport(tunnus: string) {
   // come from the same ky_kehtiv fetch — no extra source needed.
   const p = (parcelFeat?.properties ?? {}) as Record<string, unknown>;
 
+  // Forest register: count stands (metsaeraldis) + active felling notices
+  // (metsateatis) intersecting the parcel. Same GeoServer, two cheap WFS hits
+  // in parallel; failures degrade to 0 rather than breaking the report.
+  let forestStands = 0;
+  let fellingNotices = 0;
+  const parcelGeom = (parcelFeat as { geometry?: { type: string; coordinates: unknown } } | null)?.geometry;
+  if (parcelGeom) {
+    const wkt = geojsonToWkt(parcelGeom);
+    const [stands, teatis] = await Promise.all([
+      intersecting("metsaregister:eraldis", wkt, 500).catch(() => null),
+      intersecting("metsaregister:teatis", wkt, 500).catch(() => null),
+    ]);
+    forestStands = stands?.features?.length ?? 0;
+    fellingNotices = teatis?.features?.length ?? 0;
+  }
+
   // Canonical "see the source" link: the official Maa-amet kitsenduste page
   // for this exact parcel (every restriction here is visible there).
   const kitsendusedUrl = `https://kitsendused.kataster.ee/public?code=${tunnus}`;
@@ -250,13 +266,13 @@ export async function buildReport(tunnus: string) {
     restrictions,
     species,
     speciesTotal: speciesItems.length,
-    forestStands: 0,
-    fellingNotices: 0,
+    forestStands,
+    fellingNotices,
     ruleDocs,
     summary: {
       allowed: overall === "green" ? ["Metsamajandus üldiste reeglite järgi (metsateatis)"] : [],
-      forbidden: restrictions.filter((r) => r.severity === "red").map((r) => String(r.title)),
-      consider: restrictions.filter((r) => r.severity === "amber").map((r) => String(r.title)),
+      forbidden: [...new Set(restrictions.filter((r) => r.severity === "red").map((r) => String(r.title)))],
+      consider: [...new Set(restrictions.filter((r) => r.severity === "amber").map((r) => String(r.title)))],
     },
     eco: deriveEco(
       panel?.areas ?? [],
