@@ -8,6 +8,11 @@ import { parseParagraphs } from "./parse-eeskiri-core.mjs";
 const EESKIRI_AKT = {
   "Vahtrepa maastikukaitseala": "105072023204",
   "Tilga looduskaitseala": "118012022015",
+  // Verified akt ids (title-checked). Seeded so common areas resolve instantly
+  // and reliably — the Gemini+search fallback is non-deterministic and slow,
+  // and was failing on some of these despite the document existing.
+  "Kõrvemaa maastikukaitseala": "122032023009",
+  "Mukri looduskaitseala": "118012022010",
 };
 
 /** Synchronous cache lookup (no network). */
@@ -53,7 +58,7 @@ export async function resolveEeskiriAktSearch(areaName) {
   const tried = [];
   const RES_MODELS = ["gemini-3.5-flash", "gemini-2.5-flash"]; // newer first, fall back
 
-  for (let attempt = 0; attempt < 4; attempt++) {
+  for (let attempt = 0; attempt < 3; attempt++) {
     const prompt = `Otsi veebist (riigiteataja.ee) "${areaName}" praegu KEHTIVA kaitse-eeskirja Riigi Teataja akt.
 Vasta AINULT täpse URL-iga kujul https://www.riigiteataja.ee/akt/<ID> (ID on numbrid).${
       tried.length ? ` Need numbrid olid VALED või ei avanenud — ÄRA korda: ${tried.join(", ")}.` : ""
