@@ -26,7 +26,8 @@ type KitsRestriction = {
 
 const CAT_LABEL: Record<string, string> = {
   looduskaitse: "Looduskaitse", liik: "Kaitsealune liik", elektri: "Elektriliin",
-  gaas: "Gaasitoru", side: "Sidevõrk", tee: "Tee", vesi: "Vesi", muu: "Muu",
+  gaas: "Gaasitoru", side: "Sidevõrk", tee: "Tee", vesi: "Vesi",
+  maavara: "Maavara / uuring", parand: "Pärandkultuur", muu: "Muu",
 };
 
 function severityOf(category: string, coveragePct: number): Severity {

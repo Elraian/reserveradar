@@ -13,9 +13,16 @@ function categorize(feature, type) {
   if (/ELEKTRI|LIIN|ALAJAAM|KAABEL/i.test(f)) return "elektri";
   if (/GAAS/i.test(f)) return "gaas";
   if (/SIDE|TELEKO/i.test(f)) return "side";
-  if (/TEE|MAANTEE|RAUDTEE/i.test(f)) return "tee";
+  // Drainage systems (maaparandus) — water management, NOT roads. MUST come
+  // before the /TEE/ check: "maaparandussüs-TEE-mi" contains the substring
+  // "tee" and was being miscategorised as a road.
+  if (/MAAPARAND|KUIVEND|EESVOOL|DRENAA|\bKRAAV/i.test(f)) return "vesi";
   if (/kaitsealused liigid|kivistis|III kategooria|püsielupaik/i.test(f)) return "liik";
+  if (/TEE|MAANTEE|RAUDTEE/i.test(f)) return "tee";
   if (/VESI|VEEKOGU|KALDA|RANNA|NITRAAD|PUURKAEV|REOVEE|PÕHJAVE|POHJAVE/i.test(f)) return "vesi";
+  // Mineral deposits & geological survey areas — the most common "Muu" before.
+  if (/MAARDLA|MAAVARA|UURING|TURVAS|KAEVANDA|PÕLEVKIVI|POLEVKIVI|LIIV|KRUUS|PUISTANG/i.test(f)) return "maavara";
+  if (/PÄRAND|PARAND|MUINSUS|ARHEOLOOG|KULTUURIMÄLESTIS/i.test(f)) return "parand";
   return "muu";
 }
 

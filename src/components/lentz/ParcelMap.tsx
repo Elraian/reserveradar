@@ -8,12 +8,14 @@ import type { ParcelReport } from "@/lib/sampleReport";
 // Colour per kitsendus category (catKey from /api/report) — matches the chips.
 const CAT_COLOR: Record<string, string> = {
   looduskaitse: "#b42318", liik: "#92740b", elektri: "#7c3aed", gaas: "#7c3aed",
-  side: "#7c3aed", tee: "#57534e", vesi: "#0e7490", vooras: "#ea580c", muu: "#5b6b61",
+  side: "#7c3aed", tee: "#57534e", vesi: "#0e7490", vooras: "#ea580c",
+  maavara: "#a16207", parand: "#9d174d", muu: "#5b6b61",
 };
 const CAT_ET: Record<string, string> = {
   looduskaitse: "Looduskaitse", liik: "Kaitsealune liik", elektri: "Elektriliin",
   gaas: "Gaasitoru", side: "Sidevõrk", tee: "Tee", vesi: "Vesi",
-  vooras: "Karuputk (võõrliik)", muu: "Muu",
+  vooras: "Karuputk (võõrliik)", maavara: "Maavara / uuring", parand: "Pärandkultuur",
+  muu: "Muu",
 };
 // MapLibre "match" colour expression keyed on the feature's `cat` property.
 const COLOR_EXPR = [
@@ -63,6 +65,23 @@ function applyFocus(map: maplibregl.Map, focus: string | null) {
   setPaint(map, "kits-point", "circle-stroke-opacity", dim("cat", 1, 0.12));
   setPaint(map, "zones-fill", "fill-opacity", dim("kind", 0.32, 0.05));
   setPaint(map, "zones-line", "line-opacity", dim("kind", 1, 0.1));
+}
+
+// Walk any GeoJSON coordinate nesting and extend a bounds with each [lon,lat].
+function extendBounds(b: maplibregl.LngLatBounds, coords: unknown): void {
+  if (Array.isArray(coords) && typeof coords[0] === "number") {
+    b.extend(coords as [number, number]);
+  } else if (Array.isArray(coords)) {
+    for (const c of coords) extendBounds(b, c);
+  }
+}
+function featuresBounds(features: GeoJSON.Feature[]): maplibregl.LngLatBounds | null {
+  const b = new maplibregl.LngLatBounds();
+  for (const f of features) {
+    const g = f.geometry as { coordinates?: unknown } | null;
+    if (g?.coordinates) extendBounds(b, g.coordinates);
+  }
+  return b.isEmpty() ? null : b;
 }
 
 type ReportFeature = {
@@ -127,13 +146,30 @@ export default function ParcelMap({ report }: { report: ParcelReport }) {
   const overlays = (report as unknown as { overlays?: Overlay[] }).overlays ?? [];
   const zoneKinds = [...new Set(overlays.map((o) => o.kind))];
 
-  // Re-apply the highlight whenever the selection changes.
+  // Re-apply the highlight whenever the selection changes, and zoom to the
+  // focused features (so a tiny/point "liik" you couldn't spot is framed) —
+  // or back to the parcel when cleared.
   useEffect(() => {
     const map = mapRef.current;
     if (!map) return;
-    if (map.isStyleLoaded()) applyFocus(map, focus);
-    else map.once("idle", () => applyFocus(map, focus));
-  }, [focus]);
+    const run = () => {
+      applyFocus(map, focus);
+      if (focus) {
+        const match = [...zonesFC(report).features, ...kitsendusedFC(report).features].filter(
+          (f) => f.properties?.kind === focus || f.properties?.cat === focus,
+        );
+        const b = featuresBounds(match);
+        if (b) map.fitBounds(b, { padding: 90, maxZoom: 16.5, duration: 600 });
+      } else if (report.geometry) {
+        const b = featuresBounds([
+          { type: "Feature", geometry: report.geometry, properties: {} } as GeoJSON.Feature,
+        ]);
+        if (b) map.fitBounds(b, { padding: 60, duration: 600 });
+      }
+    };
+    if (map.isStyleLoaded()) run();
+    else map.once("idle", run);
+  }, [focus, report]);
 
   // New parcel → clear any highlight (the old category may not exist here).
   useEffect(() => setFocus(null), [report]);
@@ -219,10 +255,12 @@ export default function ParcelMap({ report }: { report: ParcelReport }) {
         });
         map.addLayer({
           id: "kits-point", type: "circle", source: "kitsendused",
-          filter: ["==", ["geometry-type"], "Point"],
+          // Include MultiPoint — a MultiPoint species location matched none of
+          // the type filters before and was drawn nowhere (invisible "liik").
+          filter: ["in", ["geometry-type"], ["literal", ["Point", "MultiPoint"]]],
           paint: {
-            "circle-radius": 5, "circle-color": COLOR_EXPR,
-            "circle-stroke-width": 1.5, "circle-stroke-color": "#fff",
+            "circle-radius": 7, "circle-color": COLOR_EXPR,
+            "circle-stroke-width": 2, "circle-stroke-color": "#fff",
           },
         });
         // Click a feature → popup with its label.
