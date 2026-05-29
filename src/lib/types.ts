@@ -57,6 +57,7 @@ export type ChatStreamEvent =
   | { type: "parcel"; parcel: ParcelResult } // resolved panel data
   | { type: "tool_call"; id: string; name: string; detail?: string }
   | { type: "tool_result"; id: string; ok: boolean; detail?: string }
+  | { type: "reasoning"; content: string } // model thinking (Gemini thoughts)
   | { type: "text"; content: string } // streamed answer chunk
   | { type: "error"; message: string }
   | { type: "done"; eeskiriAkt?: string | null };

@@ -216,7 +216,9 @@ export async function* streamAnswer(tunnus: string): AsyncGenerator<ChatStreamEv
             config: {
               systemInstruction: SYSTEM,
               maxOutputTokens: 700,
-              thinkingConfig: { thinkingBudget: 0 },
+              // Visible thinking: auto budget + return thought parts so the UI
+              // can show the model's reasoning (streamed as `reasoning` events).
+              thinkingConfig: { thinkingBudget: -1, includeThoughts: true },
             },
           });
           usedModel = model;
@@ -240,8 +242,17 @@ export async function* streamAnswer(tunnus: string): AsyncGenerator<ChatStreamEv
     if (!stream) throw lastErr ?? new Error("mudel ei vastanud");
     yield { type: "tool_result", id: synthId, ok: true, detail: `mudel: ${usedModel}` };
     for await (const chunk of stream) {
-      const text = chunk.text;
-      if (text) yield { type: "text", content: text };
+      // Separate thought parts (reasoning) from answer text. Gemini marks
+      // thinking parts with `thought: true` when includeThoughts is on.
+      const parts = chunk.candidates?.[0]?.content?.parts ?? [];
+      for (const p of parts) {
+        if (typeof p.text !== "string" || !p.text) continue;
+        if ((p as { thought?: boolean }).thought) {
+          yield { type: "reasoning", content: p.text };
+        } else {
+          yield { type: "text", content: p.text };
+        }
+      }
     }
   } catch (e) {
     yield { type: "tool_result", id: synthId, ok: false, detail: "Süntees ebaõnnestus" };

@@ -82,7 +82,7 @@ async function generate(ai, contents) {
         return await ai.models.generateContent({
           model,
           contents,
-          config: { systemInstruction: SYSTEM, tools: TOOLS, maxOutputTokens: 900, thinkingConfig: { thinkingBudget: 0 } },
+          config: { systemInstruction: SYSTEM, tools: TOOLS, maxOutputTokens: 900, thinkingConfig: { thinkingBudget: -1, includeThoughts: true } },
         });
       } catch (e) {
         lastErr = e;
@@ -107,13 +107,18 @@ export async function ask(messages) {
 
   const contents = messages.map((m) => ({ role: m.role, parts: [{ text: m.text }] }));
   const toolCalls = [];
+  const thoughts = [];
 
   for (let step = 0; step < 6; step++) {
     const res = await generate(ai, contents);
     const parts = res.candidates?.[0]?.content?.parts ?? [];
+    for (const p of parts) if (p.text && p.thought) thoughts.push(p.text);
     const calls = parts.filter((p) => p.functionCall);
 
-    if (calls.length === 0) return { text: res.text ?? "", toolCalls };
+    if (calls.length === 0) {
+      const text = parts.filter((p) => p.text && !p.thought).map((p) => p.text).join("") || res.text || "";
+      return { text, reasoning: thoughts.join("\n"), toolCalls };
+    }
 
     contents.push({ role: "model", parts });
     const responseParts = [];
@@ -134,5 +139,6 @@ if (invokedDirectly) {
   const r = await ask([{ role: "user", text: q }]);
   console.log("KÜSIMUS:", q);
   console.log("TÖÖRIISTAD:", r.toolCalls.map((c) => `${c.name}(${JSON.stringify(c.args)})`).join(" → ") || "(ükski)");
+  if (r.reasoning) console.log("\nMÕTTEKÄIK:\n" + r.reasoning.slice(0, 600));
   console.log("\nVASTUS:\n" + r.text);
 }
