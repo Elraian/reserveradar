@@ -6,8 +6,15 @@
 import "server-only";
 import proj4 from "proj4";
 import { getKitsendused } from "@scripts/kitsendused.mjs";
+import { getParcel } from "@scripts/wfs.mjs";
 import { resolveEeskiriAktSearch } from "@scripts/rt.mjs";
 import { resolveParcel } from "./parcel";
+
+// Title-case an UPPERCASE cadaster enum like "MAATULUNDUSMAA" → "Maatulundusmaa".
+function titleCase(s: string): string {
+  return s ? s.charAt(0).toUpperCase() + s.slice(1).toLowerCase() : s;
+}
+const num = (v: unknown): number => (typeof v === "number" && isFinite(v) ? v : 0);
 
 // L-EST97 (Estonian national grid) → WGS84, so restriction geometries (poles,
 // power lines, areas) can be drawn on the MapLibre map alongside the parcel.
@@ -69,28 +76,37 @@ function polygonArea3301(geom: { type: string; coordinates: number[][][] | numbe
 function deriveEco(
   areas: { category?: string; natura?: boolean; label?: string; nimi?: string | null; layer?: string }[],
   restrictions: Array<Record<string, unknown>>,
-  speciesTotal: number,
+  species: Array<{ latin?: string; et?: string }>,
 ): { score: number; good: string[]; concerning: string[] } {
   const good: string[] = [];
   const concerning: string[] = [];
-  let score = 50;
+  let score = 40; // neutral land baseline
 
   const has = (cat: string) => areas.some((a) => a.category === cat);
   const text = (a: { label?: string; nimi?: string | null; layer?: string }) =>
     `${a.label ?? ""} ${a.nimi ?? ""} ${a.layer ?? ""}`.toLowerCase();
+  const natura = has("natura") || areas.some((a) => a.natura);
+  const uniq = species.length; // already de-duplicated by latin name
+
+  // Wetland: an explicit water/mire overlay, OR wetland-indicator species
+  // (soo-* / *palustris orchids = marsh habitat).
+  const wetArea = has("water") || areas.some((a) => /märg|\bsoo\b|raba|luht/.test(text(a)));
+  const wetSpecies = species.some((s) => /soo-|palustris|märg/i.test(`${s.et ?? ""} ${s.latin ?? ""}`));
+  const wetland = wetArea || wetSpecies;
+
   const drainage =
     areas.some((a) => /maaparand|kuivend|kraav/.test(text(a))) ||
     restrictions.some((r) => /maaparand|kuivend|kraav/.test(String(r.title ?? r.area ?? "").toLowerCase()));
-  const natura = has("natura") || areas.some((a) => a.natura);
+  const hazard = has("hazard") || areas.some((a) => /reostus|saaste/.test(text(a)));
 
-  if (has("protection")) { score += 15; good.push("Asub kaitsealal — elurikkus tavaliselt paremas seisus."); }
-  if (natura) { score += 20; good.push("Natura 2000 — üleeuroopalise tähtsusega elupaik."); }
-  if (has("water")) { score += 10; good.push("Märgala / veekogu elupaik kinnistul."); }
-  if (speciesTotal > 0) { score += Math.min(10, speciesTotal); good.push(`${speciesTotal} kaitsealust liiki on piirkonnas registreeritud.`); }
+  if (has("protection")) { score += 14; good.push("Asub kaitsealal — elurikkus tavaliselt paremas seisus."); }
+  if (natura) { score += 18; good.push("Natura 2000 — üleeuroopalise tähtsusega elupaik."); }
+  if (wetland) { score += 10; good.push("Märgala-/sooelupaik — kõrge loodusväärtus."); }
+  if (uniq > 0) { score += Math.min(12, uniq * 2); good.push(`${uniq} kaitsealust liiki kinnistul.`); }
 
-  if (drainage && has("water")) { score -= 20; concerning.push("Kuivenduskraavid mõjutavad märgala veerežiimi."); }
+  if (drainage && wetland) { score -= 22; concerning.push("Kuivenduskraavid mõjutavad märgala veerežiimi."); }
   else if (drainage) { score -= 8; concerning.push("Kinnistul on maaparandussüsteem."); }
-  if (has("hazard")) { score -= 10; concerning.push("Läheduses on registreeritud reostusoht."); }
+  if (hazard) { score -= 12; concerning.push("Läheduses on registreeritud reostusoht."); }
   if (!good.length) good.push("Olulisi looduskaitselisi väärtusi ei tuvastatud.");
 
   return { score: Math.max(0, Math.min(100, score)), good: good.slice(0, 4), concerning: concerning.slice(0, 3) };
@@ -111,11 +127,16 @@ function splitLatinEt(name: string): { latin: string; et: string } {
 
 /** Build Lennart's ParcelReport from the live backend. */
 export async function buildReport(tunnus: string) {
-  const [kits, panel] = await Promise.all([
+  const [kits, panel, parcelFeat] = await Promise.all([
     getKitsendused(tunnus),
     resolveParcel(tunnus).catch(() => null),
+    getParcel(tunnus).catch(() => null), // ky_kehtiv feature → cadaster attributes
   ]);
   if (!kits.found) return { found: false, tunnus };
+
+  // Cadaster attributes (sihtotstarve, land-cover areas, owner type, tax value)
+  // come from the same ky_kehtiv fetch — no extra source needed.
+  const p = (parcelFeat?.properties ?? {}) as Record<string, unknown>;
 
   // Canonical "see the source" link: the official Maa-amet kitsenduste page
   // for this exact parcel (every restriction here is visible there).
@@ -207,12 +228,12 @@ export async function buildReport(tunnus: string) {
     address: addr[0] ?? "",
     municipality: addr.slice(1, 3).join(", "),
     county: addr[addr.length - 1] ?? "",
-    useType: "Maatulundusmaa",
-    areaM2: Math.round(parcelM2),
-    forestM2: 0, grassM2: 0, otherM2: 0,
-    owner: "—",
-    taxValue: 0,
-    registry: "",
+    useType: p.siht1 ? titleCase(String(p.siht1)) : "Maatulundusmaa",
+    areaM2: num(p.pindala) || Math.round(parcelM2),
+    forestM2: num(p.mets), grassM2: num(p.rohumaa), otherM2: num(p.muumaa),
+    owner: p.omvorm ? String(p.omvorm) : "—",
+    taxValue: num(p.maks_hind),
+    registry: p.kinnistu != null ? String(p.kinnistu) : "",
     overall,
     center,
     geometry: g ?? null,
@@ -234,6 +255,10 @@ export async function buildReport(tunnus: string) {
       forbidden: restrictions.filter((r) => r.severity === "red").map((r) => String(r.title)),
       consider: restrictions.filter((r) => r.severity === "amber").map((r) => String(r.title)),
     },
-    eco: deriveEco(panel?.areas ?? [], restrictions, speciesItems.length),
+    eco: deriveEco(
+      panel?.areas ?? [],
+      restrictions,
+      species as Array<{ latin?: string; et?: string }>,
+    ),
   };
 }
