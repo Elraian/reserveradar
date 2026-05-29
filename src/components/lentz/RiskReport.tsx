@@ -153,21 +153,10 @@ export default function RiskReport({
       </Section>
       )}
 
-      {/* ecological state — condensed gauge + terse good/concerning lines */}
-      {show("eco") && report.eco && (
+      {/* ecological state — terse good/concerning lines (no composite score:
+          a parcel-level model lacks the data to be trustworthy as a number). */}
+      {show("eco") && report.eco && (report.eco.good.length > 0 || report.eco.concerning.length > 0) && (
       <Section title="Ökoloogiline seisund" defaultOpen>
-        <div className="mb-3">
-          <div className="mb-1 flex items-baseline justify-between">
-            <span className="text-xs text-[#14130f]/50">Ökoloogiline väärtus</span>
-            <span className="text-sm font-semibold">
-              {report.eco.score}
-              <span className="text-[#14130f]/40">/100</span>
-            </span>
-          </div>
-          <div className="h-2 w-full bg-black/10">
-            <div className="h-full bg-[#14130f]" style={{ width: `${report.eco.score}%` }} />
-          </div>
-        </div>
         <EcoList label="Hästi" items={report.eco.good} good />
         <EcoList label="Murettekitav" items={report.eco.concerning} />
       </Section>
