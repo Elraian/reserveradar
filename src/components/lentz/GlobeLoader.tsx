@@ -146,9 +146,18 @@ export default function GlobeLoader({ size = 200 }: { size?: number }) {
       .then((r) => r.json())
       .then((world) => {
         if (!alive) return;
-        const countries = world.objects.countries;
-        land = merge(world, countries.geometries);
-        borders = mesh(world, countries);
+        // Defensive: the atlas is a 3rd-party CDN file. If it's blocked or its
+        // shape differs (no objects.countries / no geometries array), skip the
+        // land+borders — the graticule globe still spins. Never throw (this is
+        // a cosmetic loader; a throw here surfaced as a console error).
+        const countries = world?.objects?.countries;
+        if (!countries || !Array.isArray(countries.geometries)) return;
+        try {
+          land = merge(world, countries.geometries);
+          borders = mesh(world, countries);
+        } catch (e) {
+          console.warn("atlas merge failed", e);
+        }
       })
       .catch((e) => console.warn("atlas load failed", e));
 
