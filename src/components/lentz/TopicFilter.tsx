@@ -3,6 +3,7 @@
 export type TopicKey =
   | "property"
   | "restrictions"
+  | "eco"
   | "species"
   | "forest"
   | "summary"
@@ -11,6 +12,7 @@ export type TopicKey =
 export const TOPICS: { key: TopicKey; label: string }[] = [
   { key: "property", label: "Kinnistu andmed" },
   { key: "restrictions", label: "Piirangud" },
+  { key: "eco", label: "Ökoloogiline seisund" },
   { key: "species", label: "Kaitsealused liigid" },
   { key: "forest", label: "Mets ja raie" },
   { key: "summary", label: "Kokkuvõte" },

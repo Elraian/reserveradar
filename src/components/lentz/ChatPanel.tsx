@@ -14,8 +14,8 @@ const SUGGESTIONS = [
   "Mida tähendab piiranguvöönd?",
 ];
 
-// Same backend brain as the main app: the Gemini tool-calling agent (/api/ask).
-const BACKEND = process.env.NEXT_PUBLIC_BACKEND_URL ?? "http://localhost:3000";
+const BACKEND =
+  process.env.NEXT_PUBLIC_BACKEND_URL ?? "";
 
 export default function ChatPanel({ report }: { report: ParcelReport }) {
   const [open, setOpen] = useState(false);
@@ -23,23 +23,56 @@ export default function ChatPanel({ report }: { report: ParcelReport }) {
   const [input, setInput] = useState("");
   const [busy, setBusy] = useState(false);
 
+  // Stream the AI explanation for this parcel from the backend /api/chat (SSE).
+  // The backend resolves by katastritunnus, so every question is answered with
+  // a grounded explanation of the current parcel.
   async function send(text: string) {
     if (!text.trim() || busy) return;
     setInput("");
+    setMsgs((m) => [...m, { role: "user", text }, { role: "assistant", text: "" }]);
     setBusy(true);
-    const next: Msg[] = [...msgs, { role: "user", text }];
-    setMsgs([...next, { role: "assistant", text: "…" }]);
-    try {
-      const res = await fetch(`${BACKEND}/api/ask`, {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ tunnus: report.tunnus, messages: next }),
+
+    const append = (chunk: string) =>
+      setMsgs((m) => {
+        const next = [...m];
+        const last = next[next.length - 1];
+        if (last?.role === "assistant") next[next.length - 1] = { ...last, text: last.text + chunk };
+        return next;
       });
-      const data = await res.json();
-      const reply = data.text || data.error || "Vabandust, ei õnnestunud vastust koostada.";
-      setMsgs([...next, { role: "assistant", text: reply }]);
+
+    try {
+      const res = await fetch(`${BACKEND}/api/chat`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ tunnus: report.tunnus }),
+      });
+      if (!res.ok || !res.body) throw new Error(`HTTP ${res.status}`);
+      const reader = res.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = "";
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+        let nl: number;
+        while ((nl = buffer.indexOf("\n\n")) !== -1) {
+          const frame = buffer.slice(0, nl);
+          buffer = buffer.slice(nl + 2);
+          const line = frame.split("\n").find((l) => l.startsWith("data:"));
+          if (!line) continue;
+          const json = line.replace(/^data:\s?/, "").trim();
+          if (!json) continue;
+          try {
+            const evt = JSON.parse(json);
+            if (evt.type === "text") append(evt.content);
+            else if (evt.type === "error") append(`\n⚠️ ${evt.message}`);
+          } catch {
+            /* ignore partial frames */
+          }
+        }
+      }
     } catch {
-      setMsgs([...next, { role: "assistant", text: "Ühenduse viga — kontrolli, et taustsüsteem töötab." }]);
+      append("\n⚠️ Vestlus ei õnnestunud — kontrolli, et taustasüsteem töötab.");
     } finally {
       setBusy(false);
     }

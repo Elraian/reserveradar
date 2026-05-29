@@ -60,6 +60,11 @@ export interface ParcelReport {
     forbidden: string[];
     consider: string[];
   };
+  eco?: {
+    score: number; // 0–100, higher = ecologically richer / lower risk
+    good: string[]; // one short line each
+    concerning: string[]; // one short line each
+  };
 }
 
 export const sampleReport: ParcelReport = {
@@ -160,6 +165,18 @@ export const sampleReport: ParcelReport = {
       "Kogu kinnistu (100%) asub Vahtrepa kaitseala piiranguvööndis",
       "Kinnistul on 12 III kategooria kaitsealust liiki (peamiselt käpalised)",
       "Hoiuala servas — 50% maamaksu soodustus",
+    ],
+  },
+  eco: {
+    score: 68,
+    good: [
+      "Asub kaitsealal — elurikkus tavaliselt paremas seisus.",
+      "Üleeuroopalise tähtsusega märgala-elupaigad.",
+      "Natura 2000 väärtuslik elupaik läheduses.",
+    ],
+    concerning: [
+      "Lähedased kuivenduskraavid mõjutavad märgala veerežiimi.",
+      "Turvasmuldade kuivendamine on suur CO₂ allikas.",
     ],
   },
 };

@@ -82,40 +82,50 @@ export default function PainterlyCanopy({
     const cv = canvasRef.current;
     if (!cv) return;
     const gl = cv.getContext("webgl", { antialias: true, alpha: false });
-    if (!gl) return;
+    if (!gl) { cv.style.opacity = "0"; return; } // no WebGL → CSS gradient fallback shows
 
-    const compile = (type: number, src: string) => {
-      const s = gl.createShader(type)!;
-      gl.shaderSource(s, src);
-      gl.compileShader(s);
-      if (!gl.getShaderParameter(s, gl.COMPILE_STATUS))
-        console.error(gl.getShaderInfoLog(s));
-      return s;
+    let u: Record<string, WebGLUniformLocation | null> = {};
+
+    // Build (or rebuild, after a context-loss) the GL program + geometry.
+    const buildGL = () => {
+      if (gl.isContextLost()) return; // nothing to build on a dead context
+      const compile = (type: number, src: string) => {
+        const s = gl.createShader(type)!;
+        gl.shaderSource(s, src);
+        gl.compileShader(s);
+        // Don't surface failures while the context is lost — COMPILE_STATUS is
+        // false but the info log is null, which would spam a bogus error.
+        if (!gl.isContextLost() && !gl.getShaderParameter(s, gl.COMPILE_STATUS)) {
+          const log = gl.getShaderInfoLog(s);
+          if (log) console.error("[painterly-canopy] shader compile failed:", log);
+        }
+        return s;
+      };
+      const prog = gl.createProgram()!;
+      gl.attachShader(prog, compile(gl.VERTEX_SHADER, VERT));
+      gl.attachShader(prog, compile(gl.FRAGMENT_SHADER, FRAG));
+      gl.linkProgram(prog);
+      gl.useProgram(prog);
+
+      const buf = gl.createBuffer();
+      gl.bindBuffer(gl.ARRAY_BUFFER, buf);
+      gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 3, -1, -1, 3]), gl.STATIC_DRAW);
+      const pl = gl.getAttribLocation(prog, "p");
+      gl.enableVertexAttribArray(pl);
+      gl.vertexAttribPointer(pl, 2, gl.FLOAT, false, 0, 0);
+
+      const U = (n: string) => gl.getUniformLocation(prog, n);
+      u = {
+        res: U("u_res"), time: U("u_time"), mouse: U("u_mouse"), pres: U("u_pres"),
+        radius: U("u_radius"), green: U("u_green"), speed: U("u_speed"),
+        click: U("u_click"), clickT: U("u_clickT"),
+      };
     };
-
-    const prog = gl.createProgram()!;
-    gl.attachShader(prog, compile(gl.VERTEX_SHADER, VERT));
-    gl.attachShader(prog, compile(gl.FRAGMENT_SHADER, FRAG));
-    gl.linkProgram(prog);
-    gl.useProgram(prog);
-
-    const buf = gl.createBuffer();
-    gl.bindBuffer(gl.ARRAY_BUFFER, buf);
-    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 3, -1, -1, 3]), gl.STATIC_DRAW);
-    const pl = gl.getAttribLocation(prog, "p");
-    gl.enableVertexAttribArray(pl);
-    gl.vertexAttribPointer(pl, 2, gl.FLOAT, false, 0, 0);
-
-    const U = (n: string) => gl.getUniformLocation(prog, n);
-    const u = {
-      res: U("u_res"), time: U("u_time"), mouse: U("u_mouse"), pres: U("u_pres"),
-      radius: U("u_radius"), green: U("u_green"), speed: U("u_speed"),
-      click: U("u_click"), clickT: U("u_clickT"),
-    };
+    buildGL();
 
     let DPR = 1, W = 1, H = 1;
     const resize = () => {
-      DPR = Math.min(window.devicePixelRatio || 1, 1.75);
+      DPR = Math.min(window.devicePixelRatio || 1, 1.5);
       W = Math.max(1, Math.floor(cv.clientWidth * DPR));
       H = Math.max(1, Math.floor(cv.clientHeight * DPR));
       cv.width = W; cv.height = H;
@@ -135,14 +145,7 @@ export default function PainterlyCanopy({
       tmy = (r.height - (e.clientY - r.top)) * DPR;
       lastMove = tcur;
     };
-    const onDown = (e: PointerEvent) => {
-      const r = cv.getBoundingClientRect();
-      clX = (e.clientX - r.left) * DPR;
-      clY = (r.height - (e.clientY - r.top)) * DPR;
-      clT = tcur; lastMove = tcur; tmx = clX; tmy = clY;
-    };
     window.addEventListener("pointermove", onMove);
-    window.addEventListener("pointerdown", onDown);
 
     const reduce = matchMedia("(prefers-reduced-motion: reduce)").matches;
     const rfac = reduce ? 0.18 : 1.0;
@@ -170,14 +173,58 @@ export default function PainterlyCanopy({
     tmx = mx = W / 2; tmy = my = H / 2;
     raf = requestAnimationFrame(frame);
 
+    // If the GPU drops the context, hide the canvas (revealing the CSS gradient
+    // behind it) instead of letting the browser paint its "WebGL hit a snag"
+    // robot. preventDefault keeps the context restorable; rebuild on restore.
+    const onLost = (e: Event) => {
+      e.preventDefault();
+      cancelAnimationFrame(raf);
+      cv.style.opacity = "0";
+    };
+    const onRestored = () => {
+      buildGL();
+      resize();
+      cv.style.opacity = "1";
+      last = performance.now();
+      raf = requestAnimationFrame(frame);
+    };
+    cv.addEventListener("webglcontextlost", onLost);
+    cv.addEventListener("webglcontextrestored", onRestored);
+
+    // Pause the loop while the tab is hidden — running WebGL in a backgrounded
+    // tab is a common trigger for the browser reclaiming the GPU context.
+    const onVis = () => {
+      if (document.hidden) {
+        cancelAnimationFrame(raf);
+      } else if (!gl.isContextLost()) {
+        last = performance.now();
+        raf = requestAnimationFrame(frame);
+      }
+    };
+    document.addEventListener("visibilitychange", onVis);
+
     return () => {
       cancelAnimationFrame(raf);
       window.removeEventListener("resize", resize);
       window.removeEventListener("pointermove", onMove);
-      window.removeEventListener("pointerdown", onDown);
+      document.removeEventListener("visibilitychange", onVis);
+      cv.removeEventListener("webglcontextlost", onLost);
+      cv.removeEventListener("webglcontextrestored", onRestored);
       gl.getExtension("WEBGL_lose_context")?.loseContext();
     };
   }, [radius, green, speed]);
 
-  return <canvas ref={canvasRef} className="fixed inset-0 -z-10 block h-full w-full" />;
+  // CSS gradient fallback sits behind the canvas; if WebGL is unavailable or the
+  // context is lost, the canvas fades out and this shows instead (no robot face).
+  return (
+    <div
+      className="pointer-events-none fixed inset-0 -z-10"
+      style={{ background: "radial-gradient(125% 125% at 50% 10%, #f1f0ea 45%, #e2ded0 100%)" }}
+    >
+      <canvas
+        ref={canvasRef}
+        className="block h-full w-full transition-opacity duration-500"
+      />
+    </div>
+  );
 }

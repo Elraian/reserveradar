@@ -1,7 +1,7 @@
 // Riigi Teataja: resolve a protected-area name → its kaitse-eeskiri akt,
 // then fetch + parse the paragraphs.
 import { GoogleGenAI } from "@google/genai";
-import { parseParagraphs } from "./parse-eeskiri.mjs";
+import { parseParagraphs } from "./parse-eeskiri-core.mjs";
 
 // Fast-path cache: area name → current kaitse-eeskiri RT akt id.
 // Seeded with known demo areas; grows as the grounded resolver finds more.

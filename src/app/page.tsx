@@ -8,26 +8,29 @@ import RuixenQueryBox from "@/components/lentz/ui/ruixen-query-box";
 import PainterlyCanopy from "@/components/lentz/ui/painterly-canopy";
 import TopicFilter, { TOPICS, type TopicKey } from "@/components/lentz/TopicFilter";
 import RiskReport from "@/components/lentz/RiskReport";
-import ChatPanel from "@/components/lentz/ChatPanel";
+import ChatWidget from "@/components/lentz/ChatWidget";
 import GlobeLoader from "@/components/lentz/GlobeLoader";
-import { sampleReport } from "@/lib/sampleReport";
-
-// Backend bridge (main branch /api/report). Falls back to sampleReport offline.
-const BACKEND = process.env.NEXT_PUBLIC_BACKEND_URL ?? "";
+import { type ParcelReport } from "@/lib/sampleReport";
 
 const ParcelMap = dynamic(() => import("@/components/lentz/ParcelMap"), {
   ssr: false,
-  loading: () => <div className="h-full w-full bg-[#e2ded0]" />,
+  loading: () => <div className="h-full w-full bg-white" />,
 });
 
 type View = "idle" | "loading" | "report";
 
 const EASE = [0.22, 1, 0.36, 1] as const;
 
+// Live backend (the friend's system). /api/report returns Lennart's
+// ParcelReport shape and is CORS-open. Override with NEXT_PUBLIC_BACKEND_URL.
+const BACKEND =
+  process.env.NEXT_PUBLIC_BACKEND_URL ?? "";
+
 export default function Home() {
   const [view, setView] = useState<View>("idle");
   const [query, setQuery] = useState("");
-  const [report, setReport] = useState(sampleReport);
+  const [report, setReport] = useState<ParcelReport | null>(null);
+  const [error, setError] = useState<string | null>(null);
   const [topics, setTopics] = useState<Set<TopicKey>>(
     () => new Set(TOPICS.map((t) => t.key))
   );
@@ -42,20 +45,30 @@ export default function Home() {
   }
 
   async function handleSearch(q: string) {
-    setQuery(q);
+    const tunnus = q.trim();
+    setQuery(tunnus);
+    setError(null);
     setView("loading");
-    // Live: fetch the real ParcelReport from the main-branch backend.
-    // Falls back to the bundled sample if the backend is unreachable.
     try {
-      const res = await fetch(`${BACKEND}/api/report/${encodeURIComponent(q.trim())}`);
-      if (res.ok) {
-        const data = await res.json();
-        if (data?.found) setReport(data);
+      const res = await fetch(
+        `${BACKEND}/api/report/${encodeURIComponent(tunnus)}`
+      );
+      if (res.status === 404) {
+        setReport(null);
+        setError(`Katastritunnust ${tunnus} ei leitud kehtivas katastris.`);
+        setView("idle");
+        return;
       }
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const data: ParcelReport = await res.json();
+      setReport(data);
+      setView("report");
     } catch {
-      /* offline → keep sampleReport */
+      setError(
+        "Süsteem ei vastanud. Kontrolli, et taustasüsteem töötab (port 3005)."
+      );
+      setView("idle");
     }
-    setView("report");
   }
 
   return (
@@ -91,10 +104,10 @@ export default function Home() {
         </motion.main>
       )}
 
-      {view === "report" && (
+      {view === "report" && report && (
         <motion.main
           key="report"
-          className="flex h-screen flex-col bg-[#f1f0ea]"
+          className="flex h-screen flex-col bg-white"
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
@@ -102,7 +115,7 @@ export default function Home() {
         >
           {/* top search bar */}
           <motion.header
-            className="z-10 flex items-center gap-3 border-b border-black/10 bg-[#f1f0ea]/90 px-4 py-2.5 backdrop-blur"
+            className="z-10 flex items-center gap-3 border-b border-black/10 bg-white/90 px-4 py-2.5 backdrop-blur"
             initial={{ y: -24, opacity: 0 }}
             animate={{ y: 0, opacity: 1 }}
             transition={{ duration: 0.4, ease: EASE }}
@@ -121,7 +134,7 @@ export default function Home() {
           {/* split: map + report */}
           <div className="grid flex-1 grid-cols-1 overflow-hidden md:grid-cols-[1.4fr_minmax(360px,460px)]">
             <motion.div
-              className="relative hidden md:block"
+              className="relative hidden bg-white md:block"
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               transition={{ duration: 0.6, ease: EASE }}
@@ -138,7 +151,7 @@ export default function Home() {
             </motion.div>
           </div>
 
-          <ChatPanel report={report} />
+          <ChatWidget report={report} />
         </motion.main>
       )}
 
@@ -158,13 +171,12 @@ export default function Home() {
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.5, ease: EASE }}
           >
-            <h1 className="text-balance font-serif text-4xl font-normal tracking-tight text-[#15140f] sm:text-5xl">
+            <h1 className="text-balance text-4xl font-bold tracking-tight text-[#14130f] sm:text-5xl">
               Mida tohib sellel maal teha?
             </h1>
             <p className="mx-auto mt-4 max-w-xl text-balance text-lg text-[#14130f]/60">
               Sisesta katastritunnus või aadress ja näe koheselt, millised
-              looduskaitselised piirangud kinnistule kehtivad — ilma õigus- või
-              metsandusteadmiseta.
+              piirangud kinnistule kehtivad.
             </p>
 
             <div className="mx-auto mt-8 max-w-xl">
@@ -182,6 +194,9 @@ export default function Home() {
                   63902:001:0751 (Hiiumaa)
                 </button>
               </div>
+              {error && (
+                <p className="mt-4 text-sm text-red-600">{error}</p>
+              )}
             </div>
           </motion.div>
 
