@@ -47,6 +47,24 @@ function zonesFC(report: ParcelReport): GeoJSON.FeatureCollection {
   return { type: "FeatureCollection", features: feats };
 }
 
+// Highlight one layer from the legend: the focused category/zone keeps full
+// opacity, everything else dims. `focus` is a kits `cat` OR a zone `kind`;
+// null = show all normally. Applied via paint expressions so it's instant.
+function setPaint(map: maplibregl.Map, layer: string, prop: string, value: unknown) {
+  if (map.getLayer(layer)) map.setPaintProperty(layer, prop, value as never);
+}
+function applyFocus(map: maplibregl.Map, focus: string | null) {
+  const f = focus;
+  const dim = (key: string, hi: number, lo: number) =>
+    f ? (["case", ["==", ["get", key], f], hi, lo] as unknown) : hi;
+  setPaint(map, "kits-fill", "fill-opacity", dim("cat", 0.45, 0.05));
+  setPaint(map, "kits-line", "line-opacity", dim("cat", 0.9, 0.1));
+  setPaint(map, "kits-point", "circle-opacity", dim("cat", 1, 0.12));
+  setPaint(map, "kits-point", "circle-stroke-opacity", dim("cat", 1, 0.12));
+  setPaint(map, "zones-fill", "fill-opacity", dim("kind", 0.32, 0.05));
+  setPaint(map, "zones-line", "line-opacity", dim("kind", 1, 0.1));
+}
+
 type ReportFeature = {
   geometry?: GeoJSON.Geometry | null;
   catKey?: string;
@@ -104,9 +122,21 @@ export default function ParcelMap({ report }: { report: ParcelReport }) {
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<maplibregl.Map | null>(null);
   const [cats, setCats] = useState<string[]>([]);
+  const [focus, setFocus] = useState<string | null>(null); // highlighted legend item
   // Nature zones to draw + legend, straight from the precise EELIS overlays.
   const overlays = (report as unknown as { overlays?: Overlay[] }).overlays ?? [];
   const zoneKinds = [...new Set(overlays.map((o) => o.kind))];
+
+  // Re-apply the highlight whenever the selection changes.
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map) return;
+    if (map.isStyleLoaded()) applyFocus(map, focus);
+    else map.once("idle", () => applyFocus(map, focus));
+  }, [focus]);
+
+  // New parcel → clear any highlight (the old category may not exist here).
+  useEffect(() => setFocus(null), [report]);
 
   useEffect(() => {
     if (!containerRef.current || mapRef.current) return;
@@ -237,26 +267,44 @@ export default function ParcelMap({ report }: { report: ParcelReport }) {
           <span className="h-3 w-3 border-2 border-[#1d4ed8] bg-[#2563eb]/10" />
           Kinnistu
         </div>
+        {/* Click a row to highlight that layer (others dim). Click again to reset. */}
+        {(zoneKinds.length > 0 || cats.length > 0) && (
+          <p className="mb-1 text-[10px] text-[#14130f]/40">Vajuta esiletõstmiseks</p>
+        )}
         {/* Nature zones present on the parcel (precise EELIS overlays). */}
         {zoneKinds.map((k) => (
-          <div key={k} className="mt-1 flex items-center gap-2">
+          <button
+            key={k}
+            type="button"
+            onClick={() => setFocus(focus === k ? null : k)}
+            className={`mt-1 flex w-full items-center gap-2 rounded px-1 py-0.5 text-left transition ${
+              focus === k ? "bg-black/10 font-semibold" : focus ? "opacity-40 hover:opacity-100" : "hover:bg-black/5"
+            }`}
+          >
             <span
-              className="h-3 w-3 border"
+              className="h-3 w-3 shrink-0 border"
               style={{ background: `${ZONE_STYLE[k]?.color ?? "#15803d"}55`, borderColor: ZONE_STYLE[k]?.color ?? "#15803d" }}
             />
             {ZONE_STYLE[k]?.label ?? k}
-          </div>
+          </button>
         ))}
         {cats.length > 0 && (
           <div className="mt-2 border-t border-black/10 pt-1.5">
             {cats.map((c) => (
-              <div key={c} className="mt-1 flex items-center gap-2">
+              <button
+                key={c}
+                type="button"
+                onClick={() => setFocus(focus === c ? null : c)}
+                className={`mt-1 flex w-full items-center gap-2 rounded px-1 py-0.5 text-left transition ${
+                  focus === c ? "bg-black/10 font-semibold" : focus ? "opacity-40 hover:opacity-100" : "hover:bg-black/5"
+                }`}
+              >
                 <span
-                  className="h-2.5 w-2.5 rounded-full"
+                  className="h-2.5 w-2.5 shrink-0 rounded-full"
                   style={{ background: CAT_COLOR[c] ?? "#5b6b61" }}
                 />
                 {CAT_ET[c] ?? c}
-              </div>
+              </button>
             ))}
           </div>
         )}
