@@ -37,7 +37,7 @@ export default function TopicFilter({
               type="button"
               aria-pressed={on}
               onClick={() => onToggle(t.key)}
-              className={`rounded-full px-3 py-1.5 text-sm ring-1 transition ${
+              className={`px-3 py-1.5 text-sm ring-1 transition ${
                 on
                   ? "bg-[#14130f] text-[#f1f0ea] ring-[#14130f]"
                   : "bg-transparent text-[#14130f]/60 ring-black/20 hover:bg-black/5"

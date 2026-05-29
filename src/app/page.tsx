@@ -185,15 +185,6 @@ export default function Home() {
                 placeholder="Sisesta katastritunnus või aadress…"
               />
               <TopicFilter selected={topics} onToggle={toggleTopic} />
-              <div className="mt-5 flex flex-wrap items-center justify-center gap-2 text-sm text-[#14130f]/50">
-                Proovi:
-                <button
-                  onClick={() => handleSearch("63902:001:0751")}
-                  className="rounded-full bg-white px-3 py-1 text-[#14130f] ring-1 ring-black/10 hover:bg-black/5"
-                >
-                  63902:001:0751 (Hiiumaa)
-                </button>
-              </div>
               {error && (
                 <p className="mt-4 text-sm text-red-600">{error}</p>
               )}
