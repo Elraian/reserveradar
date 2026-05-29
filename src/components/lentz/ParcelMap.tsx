@@ -43,8 +43,22 @@ function kitsendusedFC(report: ParcelReport): GeoJSON.FeatureCollection {
   };
   for (const r of ((report as unknown as { restrictions: ReportFeature[] }).restrictions ?? []))
     push(r, r.catKey ?? "muu", r.title ?? r.area ?? "Kitsendus");
-  for (const s of ((report as unknown as { species: ReportFeature[] }).species ?? []))
-    push(s, "liik", s.et ?? s.latin ?? "Liik");
+  // Protected species often share one habitat polygon (e.g. 5 orchids in the
+  // same meadow). Group by geometry so each area is drawn ONCE and its popup
+  // lists every species in it — instead of 5 identical polygons stacked, with
+  // a popup that reveals only one name.
+  const byGeom = new Map<string, { geom: GeoJSON.Geometry; names: string[] }>();
+  for (const s of ((report as unknown as { species: ReportFeature[] }).species ?? [])) {
+    if (!s.geometry) continue;
+    const key = JSON.stringify(s.geometry);
+    const e = byGeom.get(key) ?? { geom: s.geometry, names: [] };
+    e.names.push(s.et ?? s.latin ?? "Liik");
+    byGeom.set(key, e);
+  }
+  for (const { geom, names } of byGeom.values()) {
+    const label = names.length > 1 ? `${names.length} liiki: ${names.join(", ")}` : names[0];
+    feats.push({ type: "Feature", geometry: geom, properties: { cat: "liik", label } });
+  }
   return { type: "FeatureCollection", features: feats };
 }
 
