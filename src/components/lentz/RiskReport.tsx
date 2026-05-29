@@ -300,6 +300,9 @@ function EcoList({ label, items, good = false }: { label: string; items: string[
 }
 
 function SummaryList({ tone, items, title }: { tone: string; items: string[]; title: string }) {
+  // Don't render an empty header — a "Mida ei tohi" with nothing under it reads
+  // as broken. Omit the bucket entirely when there's nothing to say.
+  if (!items.length) return null;
   return (
     <div className="mb-3">
       <p className={`mb-1 text-xs font-semibold ${tone}`}>
@@ -307,8 +310,9 @@ function SummaryList({ tone, items, title }: { tone: string; items: string[]; ti
       </p>
       <ul className="space-y-1">
         {items.map((it, i) => (
-          <li key={i} className="text-sm text-[#14130f]/80">
-            {it}
+          <li key={i} className="flex gap-1.5 text-sm text-[#14130f]/80">
+            <span className="mt-[7px] h-1 w-1 shrink-0 rounded-full bg-[#14130f]/40" />
+            <span>{it}</span>
           </li>
         ))}
       </ul>

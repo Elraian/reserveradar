@@ -129,6 +129,53 @@ function splitLatinEt(name: string): { latin: string; et: string } {
   return { latin: name, et: name };
 }
 
+// Plain-language "Lihtsalt öeldes" — what you can / can't / must consider,
+// derived from the categories + protection zone present. Deterministic and
+// concrete (not an echo of restriction titles); the chat gives the richer,
+// §-cited version. Empty buckets are simply omitted by the UI.
+function buildSummary(
+  restrictions: Array<{ catKey?: unknown }>,
+  speciesCount: number,
+  zone: string | null | undefined,
+): { allowed: string[]; forbidden: string[]; consider: string[] } {
+  const cats = new Set(restrictions.map((r) => String(r.catKey)));
+  const allowed: string[] = [];
+  const forbidden: string[] = [];
+  const consider: string[] = [];
+
+  const strictZone = zone === "reservaat" || zone === "sihtkaitsevöönd";
+  const heavyNature = cats.has("looduskaitse") || strictZone;
+
+  // What you CAN do
+  if (!heavyNature) allowed.push("Metsamajandus üldiste reeglite järgi (metsateatis)");
+  if (!cats.size && !speciesCount) allowed.push("Tavapärane maakasutus — teadaolevaid piiranguid pole");
+
+  // Protection zone drives the strongest forest-management line
+  if (zone === "reservaat") forbidden.push("Reservaadis on majandustegevus ja metsaraie keelatud");
+  else if (zone === "sihtkaitsevöönd") forbidden.push("Sihtkaitsevööndis on metsaraie üldjuhul keelatud (täpsusta Keskkonnaametiga)");
+  else if (zone === "piiranguvöönd") consider.push("Piiranguvööndis on raie piiratud — vajab Keskkonnaameti kooskõlastust");
+
+  // Category-driven guidance (human consequence, not the raw kitsendus name)
+  if (cats.has("looduskaitse") && !strictZone)
+    consider.push("Kaitsealal võivad raie ja ehitus olla loakohustuslikud — täpsusta Keskkonnaametiga");
+  if (cats.has("elektri") || cats.has("gaas") || cats.has("side"))
+    consider.push("Tehnovõrgu kaitsevööndis vajavad kaeve- ja ehitustööd võrguettevõtja (nt Elektrilevi) nõusolekut");
+  if (cats.has("tee"))
+    consider.push("Tee kaitsevööndis vajavad tegevus ja uued mahasõidud Transpordiameti kooskõlastust");
+  if (cats.has("vesi"))
+    consider.push("Vee-/põhjaveekaitse alal on väetiste ja taimekaitsevahendite kasutamine piiratud");
+  if (cats.has("vooras"))
+    consider.push("Karuputke koloonia: tõrje on kohustuslik; majandamine lubatud vaid leviku tõrjumisel");
+  if (speciesCount > 0)
+    consider.push("Kinnistul on kaitsealuseid liike — nende elupaiku ei tohi kahjustada");
+
+  return {
+    allowed: [...new Set(allowed)],
+    forbidden: [...new Set(forbidden)],
+    consider: [...new Set(consider)],
+  };
+}
+
 /** Build Lennart's ParcelReport from the live backend. */
 export async function buildReport(tunnus: string) {
   const [kits, panel, parcelFeat] = await Promise.all([
@@ -297,11 +344,7 @@ export async function buildReport(tunnus: string) {
     forestStands,
     fellingNotices,
     ruleDocs,
-    summary: {
-      allowed: overall === "green" ? ["Metsamajandus üldiste reeglite järgi (metsateatis)"] : [],
-      forbidden: [...new Set(restrictions.filter((r) => r.severity === "red").map((r) => String(r.title)))],
-      consider: [...new Set(restrictions.filter((r) => r.severity === "amber").map((r) => String(r.title)))],
-    },
+    summary: buildSummary(restrictions, speciesItems.length, panel?.zone),
     eco: deriveEco(
       panel?.areas ?? [],
       restrictions,
