@@ -12,6 +12,9 @@ import ChatPanel from "@/components/ChatPanel";
 import GlobeLoader from "@/components/GlobeLoader";
 import { sampleReport } from "@/app/_data/sampleReport";
 
+// Backend bridge (main branch /api/report). Falls back to sampleReport offline.
+const BACKEND = process.env.NEXT_PUBLIC_BACKEND_URL ?? "http://localhost:3000";
+
 const ParcelMap = dynamic(() => import("@/components/ParcelMap"), {
   ssr: false,
   loading: () => <div className="h-full w-full bg-[#e2ded0]" />,
@@ -24,6 +27,7 @@ const EASE = [0.22, 1, 0.36, 1] as const;
 export default function Home() {
   const [view, setView] = useState<View>("idle");
   const [query, setQuery] = useState("");
+  const [report, setReport] = useState(sampleReport);
   const [topics, setTopics] = useState<Set<TopicKey>>(
     () => new Set(TOPICS.map((t) => t.key))
   );
@@ -37,11 +41,21 @@ export default function Home() {
     });
   }
 
-  function handleSearch(q: string) {
+  async function handleSearch(q: string) {
     setQuery(q);
     setView("loading");
-    // demo: hardcoded data — give the globe loader a moment to show
-    setTimeout(() => setView("report"), 2200);
+    // Live: fetch the real ParcelReport from the main-branch backend.
+    // Falls back to the bundled sample if the backend is unreachable.
+    try {
+      const res = await fetch(`${BACKEND}/api/report/${encodeURIComponent(q.trim())}`);
+      if (res.ok) {
+        const data = await res.json();
+        if (data?.found) setReport(data);
+      }
+    } catch {
+      /* offline → keep sampleReport */
+    }
+    setView("report");
   }
 
   return (
@@ -111,7 +125,7 @@ export default function Home() {
               animate={{ opacity: 1 }}
               transition={{ duration: 0.6, ease: EASE }}
             >
-              <ParcelMap report={sampleReport} />
+              <ParcelMap report={report} />
             </motion.div>
             <motion.div
               className="overflow-hidden border-l border-black/10"
@@ -119,11 +133,11 @@ export default function Home() {
               animate={{ x: 0, opacity: 1 }}
               transition={{ delay: 0.1, duration: 0.5, ease: EASE }}
             >
-              <RiskReport report={sampleReport} topics={topics} />
+              <RiskReport report={report} topics={topics} />
             </motion.div>
           </div>
 
-          <ChatPanel report={sampleReport} />
+          <ChatPanel report={report} />
         </motion.main>
       )}
 
