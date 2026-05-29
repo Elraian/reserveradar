@@ -332,6 +332,28 @@ export async function buildReport(tunnus: string) {
     center,
     geometry: g ?? null,
     zone: panel?.zone ?? null,
+    // EELIS nature overlays (with geometry) for distinct map fills. `kind`
+    // distinguishes kaitseala / sihtkaitsevöönd / reservaat / piiranguvöönd /
+    // Natura so each draws in its own colour, under the parcel outline.
+    overlays: (panel?.areas ?? [])
+      .filter(
+        (a) =>
+          (a.category === "protection" || a.category === "zone" || a.category === "natura") &&
+          a.geometry,
+      )
+      .map((a) => {
+        const l = a.layer;
+        const kind = l.includes("reservaat")
+          ? "reservaat"
+          : l.includes("skv")
+            ? "sihtkaitsevoond"
+            : l === "eelis:kr_piirang"
+              ? "piiranguvoond"
+              : a.category === "natura"
+                ? "natura"
+                : "kaitseala";
+        return { kind, label: a.nimi || a.label, geometry: a.geometry };
+      }),
     // Source links — where every data point can be opened/verified.
     kitsendusedUrl,
     sources: [

@@ -5,8 +5,6 @@ import maplibregl from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
 import type { ParcelReport } from "@/lib/sampleReport";
 
-const EELIS_WFS = "https://gsavalik.envir.ee/geoserver/eelis/ows";
-
 // Colour per kitsendus category (catKey from /api/report) — matches the chips.
 const CAT_COLOR: Record<string, string> = {
   looduskaitse: "#b42318", liik: "#92740b", elektri: "#7c3aed", gaas: "#7c3aed",
@@ -23,6 +21,31 @@ const COLOR_EXPR = [
   ...Object.entries(CAT_COLOR).flatMap(([k, v]) => [k, v]),
   "#5b6b61",
 ] as unknown as maplibregl.ExpressionSpecification;
+
+// EELIS nature zones — colour + label per `kind` (from report.overlays).
+const ZONE_STYLE: Record<string, { color: string; label: string }> = {
+  kaitseala: { color: "#15803d", label: "Kaitseala / hoiuala" },
+  natura: { color: "#0891b2", label: "Natura 2000" },
+  piiranguvoond: { color: "#ca8a04", label: "Piiranguvöönd" },
+  sihtkaitsevoond: { color: "#dc2626", label: "Sihtkaitsevöönd" },
+  reservaat: { color: "#7f1d1d", label: "Reservaat" },
+};
+const ZONE_COLOR_EXPR = [
+  "match", ["get", "kind"],
+  ...Object.entries(ZONE_STYLE).flatMap(([k, v]) => [k, v.color]),
+  "#15803d",
+] as unknown as maplibregl.ExpressionSpecification;
+
+type Overlay = { kind: string; label: string; geometry?: GeoJSON.Geometry | null };
+
+function zonesFC(report: ParcelReport): GeoJSON.FeatureCollection {
+  const feats: GeoJSON.Feature[] = [];
+  for (const o of ((report as unknown as { overlays?: Overlay[] }).overlays ?? [])) {
+    if (!o.geometry) continue;
+    feats.push({ type: "Feature", geometry: o.geometry, properties: { kind: o.kind, label: o.label } });
+  }
+  return { type: "FeatureCollection", features: feats };
+}
 
 type ReportFeature = {
   geometry?: GeoJSON.Geometry | null;
@@ -66,35 +89,24 @@ function kitsendusedFC(report: ParcelReport): GeoJSON.FeatureCollection {
 function popup(map: maplibregl.Map, e: maplibregl.MapLayerMouseEvent) {
   const f = e.features?.[0];
   if (!f) return;
-  const cat = String(f.properties?.cat ?? "");
   const label = String(f.properties?.label ?? "");
+  // Zone features carry `kind`; kitsendused features carry `cat`.
+  const kind = f.properties?.kind ? String(f.properties.kind) : "";
+  const cat = String(f.properties?.cat ?? "");
+  const title = kind ? ZONE_STYLE[kind]?.label ?? kind : CAT_ET[cat] ?? cat;
   new maplibregl.Popup({ closeButton: false })
     .setLngLat(e.lngLat)
-    .setHTML(
-      `<div style="font:12px system-ui"><b>${CAT_ET[cat] ?? cat}</b><br/>${label}</div>`,
-    )
+    .setHTML(`<div style="font:12px system-ui"><b>${title}</b><br/>${label}</div>`)
     .addTo(map);
-}
-
-function bboxOf(coords: number[][]): string {
-  let minLon = Infinity, minLat = Infinity, maxLon = -Infinity, maxLat = -Infinity;
-  for (const [lon, lat] of coords) {
-    if (lon < minLon) minLon = lon;
-    if (lat < minLat) minLat = lat;
-    if (lon > maxLon) maxLon = lon;
-    if (lat > maxLat) maxLat = lat;
-  }
-  const padLon = (maxLon - minLon) * 0.6 + 0.002;
-  const padLat = (maxLat - minLat) * 0.6 + 0.002;
-  return `${minLon - padLon},${minLat - padLat},${maxLon + padLon},${maxLat + padLat},EPSG:4326`;
 }
 
 export default function ParcelMap({ report }: { report: ParcelReport }) {
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<maplibregl.Map | null>(null);
-  const [kaitsealad, setKaitsealad] = useState<string[]>([]);
-  const [kaDone, setKaDone] = useState(false); // EELIS kaitseala fetch finished?
   const [cats, setCats] = useState<string[]>([]);
+  // Nature zones to draw + legend, straight from the precise EELIS overlays.
+  const overlays = (report as unknown as { overlays?: Overlay[] }).overlays ?? [];
+  const zoneKinds = [...new Set(overlays.map((o) => o.kind))];
 
   useEffect(() => {
     if (!containerRef.current || mapRef.current) return;
@@ -125,66 +137,55 @@ export default function ParcelMap({ report }: { report: ParcelReport }) {
     map.addControl(new maplibregl.NavigationControl({ showCompass: false }), "top-right");
 
     map.on("load", () => {
-      // Protected areas (kaitseala) overlapping the parcel's area — live from EELIS.
-      const bbox = bboxOf(report.geometry.coordinates[0]);
-      const url =
-        `${EELIS_WFS}?service=WFS&version=1.0.0&request=GetFeature` +
-        `&typeName=eelis:kr_kaitseala&srsName=EPSG:4326&outputFormat=application/json` +
-        `&maxFeatures=50&bbox=${encodeURIComponent(bbox)}`;
+      // Layer order matters: parcel FILL at the bottom (faint, so it never
+      // washes out the coloured overlays) → nature zones → kitsendused →
+      // parcel OUTLINE on top. Previously the blue parcel fill sat on top of
+      // everything and hid the category colours.
 
-      fetch(url)
-        .then((r) => (r.ok ? r.json() : Promise.reject(r.status)))
-        .then((fc: GeoJSON.FeatureCollection) => {
-          setKaDone(true);
-          if (!fc.features?.length || !mapRef.current) return;
-          map.addSource("kaitseala", { type: "geojson", data: fc });
-          map.addLayer(
-            {
-              id: "kaitseala-fill",
-              type: "fill",
-              source: "kaitseala",
-              paint: { "fill-color": "#16a34a", "fill-opacity": 0.22 },
-            },
-            "parcel-fill"
-          );
-          map.addLayer(
-            {
-              id: "kaitseala-line",
-              type: "line",
-              source: "kaitseala",
-              paint: { "line-color": "#15803d", "line-width": 1.5, "line-dasharray": [2, 1] },
-            },
-            "parcel-fill"
-          );
-          const names = Array.from(
-            new Set(
-              fc.features
-                .map((f) => (f.properties?.nimi as string) ?? "")
-                .filter(Boolean)
-            )
-          );
-          setKaitsealad(names);
-        })
-        .catch(() => {
-          /* overlay is optional — leave the map informational without it */
-          setKaDone(true);
+      // 1. Parcel fill — faint wash so overlay colours read clearly on top.
+      map.addSource("parcel", {
+        type: "geojson",
+        data: { type: "Feature", geometry: report.geometry, properties: {} },
+      });
+      map.addLayer({
+        id: "parcel-fill",
+        type: "fill",
+        source: "parcel",
+        paint: { "fill-color": "#2563eb", "fill-opacity": 0.04 },
+      });
+
+      // 2. EELIS nature zones (kaitseala, sihtkaitsevöönd, reservaat,
+      // piiranguvöönd, Natura) — precise geometry from the report, each in its
+      // own colour with a dashed outline.
+      const zfc = zonesFC(report);
+      if (zfc.features.length) {
+        map.addSource("zones", { type: "geojson", data: zfc });
+        map.addLayer({
+          id: "zones-fill", type: "fill", source: "zones",
+          paint: { "fill-color": ZONE_COLOR_EXPR, "fill-opacity": 0.3 },
         });
+        map.addLayer({
+          id: "zones-line", type: "line", source: "zones",
+          paint: { "line-color": ZONE_COLOR_EXPR, "line-width": 1.5, "line-dasharray": [2, 1] },
+        });
+        map.on("click", "zones-fill", (e) => popup(map, e));
+      }
 
-      // All kitsendused (poles, power lines, water/road zones, species) — one
-      // source, three type-filtered layers (polygon fill / line / point), each
-      // coloured by category. Drawn under the parcel outline.
+      // 3. All kitsendused (poles, power lines, water/road zones, species,
+      // karuputk) — one source, three type-filtered layers, coloured by
+      // category. Stronger opacity + outline so each colour reads on the map.
       const fc = kitsendusedFC(report);
       if (fc.features.length) {
         map.addSource("kitsendused", { type: "geojson", data: fc });
         map.addLayer({
           id: "kits-fill", type: "fill", source: "kitsendused",
           filter: ["==", ["geometry-type"], "Polygon"],
-          paint: { "fill-color": COLOR_EXPR, "fill-opacity": 0.18 },
+          paint: { "fill-color": COLOR_EXPR, "fill-opacity": 0.4, "fill-outline-color": COLOR_EXPR },
         });
         map.addLayer({
           id: "kits-line", type: "line", source: "kitsendused",
           filter: ["in", ["geometry-type"], ["literal", ["LineString", "MultiLineString"]]],
-          paint: { "line-color": COLOR_EXPR, "line-width": 3, "line-opacity": 0.85 },
+          paint: { "line-color": COLOR_EXPR, "line-width": 3, "line-opacity": 0.9 },
         });
         map.addLayer({
           id: "kits-point", type: "circle", source: "kitsendused",
@@ -201,22 +202,12 @@ export default function ParcelMap({ report }: { report: ParcelReport }) {
       }
       setCats([...new Set(fc.features.map((f) => String(f.properties?.cat)))]);
 
-      // Parcel boundary on top.
-      map.addSource("parcel", {
-        type: "geojson",
-        data: { type: "Feature", geometry: report.geometry, properties: {} },
-      });
-      map.addLayer({
-        id: "parcel-fill",
-        type: "fill",
-        source: "parcel",
-        paint: { "fill-color": "#2563eb", "fill-opacity": 0.1 },
-      });
+      // 4. Parcel outline on TOP — bold so the parcel stays the focus.
       map.addLayer({
         id: "parcel-line",
         type: "line",
         source: "parcel",
-        paint: { "line-color": "#1d4ed8", "line-width": 3 },
+        paint: { "line-color": "#1d4ed8", "line-width": 3.5 },
       });
 
       const coords = report.geometry.coordinates[0];
@@ -243,22 +234,18 @@ export default function ParcelMap({ report }: { report: ParcelReport }) {
       {/* legend */}
       <div className="absolute left-3 top-3 z-10 border border-black/10 bg-white/95 px-3 py-2.5 text-xs text-[#14130f] shadow-sm backdrop-blur">
         <div className="mb-1.5 flex items-center gap-2">
-          <span className="h-3 w-3 border-2 border-[#1d4ed8] bg-[#2563eb]/20" />
+          <span className="h-3 w-3 border-2 border-[#1d4ed8] bg-[#2563eb]/10" />
           Kinnistu
         </div>
-        {/* Show the green kaitseala row only while checking, or once one is
-            actually found. If the fetch finished and the parcel has no kaitseala
-            nearby, drop the row entirely (no permanent "kontrollin…"). */}
-        {(!kaDone || kaitsealad.length > 0) && (
-          <div className="flex items-center gap-2">
-            <span className="h-3 w-3 border border-[#15803d] bg-[#16a34a]/30" />
-            {kaitsealad.length ? "Kaitseala" : "Kaitseala (kontrollin…)"}
+        {/* Nature zones present on the parcel (precise EELIS overlays). */}
+        {zoneKinds.map((k) => (
+          <div key={k} className="mt-1 flex items-center gap-2">
+            <span
+              className="h-3 w-3 border"
+              style={{ background: `${ZONE_STYLE[k]?.color ?? "#15803d"}55`, borderColor: ZONE_STYLE[k]?.color ?? "#15803d" }}
+            />
+            {ZONE_STYLE[k]?.label ?? k}
           </div>
-        )}
-        {kaitsealad.map((n) => (
-          <p key={n} className="mt-1 max-w-[14rem] text-[11px] leading-tight text-[#14130f]/60">
-            {n}
-          </p>
         ))}
         {cats.length > 0 && (
           <div className="mt-2 border-t border-black/10 pt-1.5">

@@ -69,6 +69,13 @@ export interface ParcelReport {
   // piiranguvöönd). Decides forest-management rights; the kitsendused API only
   // names the kaitseala, not the zone, so we surface this separately.
   zone?: string | null;
+  // EELIS nature overlays with geometry, for distinct map fills (kaitseala,
+  // sihtkaitsevöönd, reservaat, piiranguvöönd, Natura). `kind` drives colour.
+  overlays?: {
+    kind: "kaitseala" | "sihtkaitsevoond" | "reservaat" | "piiranguvoond" | "natura";
+    label: string;
+    geometry: GeoJSON.Geometry | null;
+  }[];
 }
 
 export const sampleReport: ParcelReport = {
