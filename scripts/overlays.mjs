@@ -24,20 +24,26 @@ export async function getProtectionAreas(tunnus) {
   const parcel = await getParcel(tunnus);
   if (!parcel) return { tunnus, found: false, areas: [] };
   const wkt = geojsonToWkt(parcel.geometry);
-  const areas = [];
-  for (const { layer, category, label, natura } of LAYERS) {
-    try {
-      const fc = await intersecting(layer, wkt, 30);
-      for (const f of fc.features ?? []) {
-        areas.push({
+  // Query all layers in PARALLEL — was sequential (~14 round-trips back to
+  // back). Each layer's failures are isolated so one bad layer can't sink the
+  // sweep.
+  const perLayer = await Promise.all(
+    LAYERS.map(async ({ layer, category, label, natura }) => {
+      try {
+        const fc = await intersecting(layer, wkt, 30);
+        return (fc.features ?? []).map((f) => ({
           layer, category, label, natura: !!natura,
           nimi: f.properties.nimi ?? f.properties.liik ?? f.properties.nimetus ?? null,
           kr_kood: f.properties.kr_kood ?? null,
           tyyp: f.properties.tyyp ?? null,
-        });
+        }));
+      } catch (e) {
+        console.log(`  ${layer} err: ${e.message.slice(0, 70)}`);
+        return [];
       }
-    } catch (e) { console.log(`  ${layer} err: ${e.message.slice(0, 70)}`); }
-  }
+    }),
+  );
+  const areas = perLayer.flat();
   return {
     tunnus,
     found: true,

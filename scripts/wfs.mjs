@@ -8,6 +8,9 @@ const HOSTS = {
   // Maa-amet karuputke (hogweed) colonies live in the "maaamet" workspace on
   // the same GeoServer; the root /geoserver/wfs serves all workspaces.
   maaamet: "https://gsavalik.envir.ee/geoserver/wfs",
+  // Precomputed forest-use restriction zones (shore/flood/fertiliser) — the
+  // "kitsendused" workspace, same root endpoint.
+  kitsendused: "https://gsavalik.envir.ee/geoserver/wfs",
 };
 
 function workspaceOf(layer) {

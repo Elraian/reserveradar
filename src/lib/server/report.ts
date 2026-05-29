@@ -27,7 +27,7 @@ type KitsRestriction = {
 const CAT_LABEL: Record<string, string> = {
   looduskaitse: "Looduskaitse", liik: "Kaitsealune liik", elektri: "Elektriliin",
   gaas: "Gaasitoru", side: "Sidevõrk", tee: "Tee", vesi: "Vesi",
-  maavara: "Maavara / uuring", parand: "Pärandkultuur", muu: "Muu",
+  maavara: "Maavara / uuring", parand: "Pärandkultuur", uleujutus: "Üleujutusala", muu: "Muu",
 };
 
 function severityOf(category: string, coveragePct: number): Severity {
@@ -164,7 +164,9 @@ function buildSummary(
   if (cats.has("tee"))
     consider.push("Tee kaitsevööndis vajavad tegevus ja uued mahasõidud Transpordiameti kooskõlastust");
   if (cats.has("vesi"))
-    consider.push("Vee-/põhjaveekaitse alal on väetiste ja taimekaitsevahendite kasutamine piiratud");
+    consider.push("Vee-/põhjaveekaitse alal on väetiste ja taimekaitsevahendite kasutamine piiratud; ranna/kalda vööndis ehitus piiratud");
+  if (cats.has("uleujutus"))
+    consider.push("Korduva üleujutuse ala — ehitus- ja kuivendustööd piiratud");
   if (cats.has("vooras"))
     consider.push("Karuputke koloonia: tõrje on kohustuslik; majandamine lubatud vaid leviku tõrjumisel");
   if (speciesCount > 0)
@@ -280,6 +282,24 @@ export async function buildReport(tunnus: string) {
       ruleUrl: "https://www.riigiteataja.ee/akt/LKS",
       cardUrl: "https://xgis.maaamet.ee/xgis2/page/app/karuputk",
       geometry: polys.length ? { type: "MultiPolygon", coordinates: polys } : null,
+    });
+  }
+
+  // Forest-use restriction zones (shore/flood/fertiliser) from the EELIS sweep
+  // (kitsendused:metsakas_kpois_*), attached by resolveOverlays. These are the
+  // restrictions the official app shows but the v2 API omitted.
+  for (const a of (panel?.areas ?? []).filter((x) => x.layer?.startsWith("kitsendused:metsakas"))) {
+    const catKey = a.tyyp === "uleujutus" ? "uleujutus" : "vesi";
+    restrictions.push({
+      category: CAT_LABEL[catKey] ?? "Vesi",
+      catKey,
+      title: a.label || "Kitsendus", // voondi_nimetus, e.g. "Ranna või kalda veekaitsevöönd"
+      area: a.nimi || "", // water body + buffer width
+      areaM2: 0,
+      coveragePct: 0,
+      severity: "amber",
+      cardUrl: kitsendusedUrl,
+      geometry: a.geometry ?? null,
     });
   }
 

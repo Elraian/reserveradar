@@ -8,6 +8,7 @@ import { getFeatures, getParcel, geojsonToWkt } from "@scripts/wfs.mjs";
 import { getProtectionAreas } from "@scripts/overlays.mjs";
 import { getKitsendused } from "@scripts/kitsendused.mjs";
 import { getKaruputk } from "@scripts/karuputk.mjs";
+import { getForestZones } from "@scripts/forestzones.mjs";
 import { reproject3301to4326 } from "./geo";
 import type { AreaOverlay, Category, ParcelGeometry, ParcelResult } from "@/lib/types";
 
@@ -179,6 +180,25 @@ export async function resolveOverlays(tunnus: string): Promise<OverlaySweep> {
         kr_kood: k.koloonia_id ?? null,
         tyyp: null,
         geom4326: reproject3301to4326(k.geom ?? null),
+      });
+    }
+  }
+
+  // Precomputed forest-use restriction zones (shore/flood/fertiliser) that the
+  // v2 kitsendused API omits but the official kaardirakendus shows. Queried by
+  // the parcel polygon; surfaced as water/flood overlays.
+  if (kits?.geometry) {
+    const zones = await getForestZones(kits.geometry).catch(() => []);
+    for (const z of zones as Array<{ layer: string; kind: string; name?: string | null; objekt?: string | null; ulatus_m?: number | null; geom?: { type: string; coordinates: unknown } | null }>) {
+      const ctx = [z.objekt, z.ulatus_m ? `${z.ulatus_m} m` : null].filter(Boolean).join(", ");
+      extra.push({
+        layer: z.layer, // "kitsendused:metsakas_kpois_…" → report.ts maps to catKey
+        category: "water",
+        label: z.name || "Kitsendus",
+        nimi: ctx || z.name || null,
+        kr_kood: null,
+        tyyp: z.kind, // "vesi" | "uleujutus" → drives the report catKey/colour
+        geom4326: reproject3301to4326(z.geom ?? null),
       });
     }
   }
