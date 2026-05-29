@@ -51,6 +51,7 @@ export async function resolveEeskiriAktSearch(areaName) {
 
   const ai = new GoogleGenAI({ apiKey });
   const tried = [];
+  const RES_MODELS = ["gemini-3.5-flash", "gemini-2.5-flash"]; // newer first, fall back
 
   for (let attempt = 0; attempt < 4; attempt++) {
     const prompt = `Otsi veebist (riigiteataja.ee) "${areaName}" praegu KEHTIVA kaitse-eeskirja Riigi Teataja akt.
@@ -60,7 +61,7 @@ Vasta AINULT täpse URL-iga kujul https://www.riigiteataja.ee/akt/<ID> (ID on nu
     let text = "";
     try {
       const res = await ai.models.generateContent({
-        model: "gemini-2.5-flash",
+        model: RES_MODELS[Math.min(attempt, RES_MODELS.length - 1)],
         contents: [{ role: "user", parts: [{ text: prompt }] }],
         config: { tools: [{ googleSearch: {} }], maxOutputTokens: 300, thinkingConfig: { thinkingBudget: 0 } },
       });

@@ -7,7 +7,9 @@ import { GoogleGenAI } from "@google/genai";
 import { getKitsendused } from "./kitsendused.mjs";
 import { resolveEeskiriAktSearch, fetchEeskiriParagraphs } from "./rt.mjs";
 
-const MODELS = ["gemini-2.5-flash", "gemini-flash-latest"];
+// Try newer 3.5-flash first; fall back to 2.5-flash on overload. Native
+// function-calling works on both.
+const MODELS = ["gemini-3.5-flash", "gemini-2.5-flash"];
 
 const SYSTEM = `Sa oled Reserve Radar — Eesti maa- ja metsanduskitsenduste assistent.
 Kasutaja annab katastritunnuse ja küsib mida maal tohib teha (raie, ehitus jne).

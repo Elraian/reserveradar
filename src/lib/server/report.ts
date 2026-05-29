@@ -6,7 +6,7 @@
 import "server-only";
 import proj4 from "proj4";
 import { getKitsendused } from "@scripts/kitsendused.mjs";
-import { resolveEeskiriAktSearch, fetchEeskiriParagraphs } from "@scripts/rt.mjs";
+import { resolveEeskiriAktSearch } from "@scripts/rt.mjs";
 import { resolveParcel } from "./parcel";
 
 // L-EST97 (Estonian national grid) → WGS84, so restriction geometries (poles,
@@ -84,6 +84,10 @@ export async function buildReport(tunnus: string) {
   ]);
   if (!kits.found) return { found: false, tunnus };
 
+  // Canonical "see the source" link: the official Maa-amet kitsenduste page
+  // for this exact parcel (every restriction here is visible there).
+  const kitsendusedUrl = `https://kitsendused.kataster.ee/public?code=${tunnus}`;
+
   const parcelM2 = polygonArea3301(kits.geometry as never) || panel?.areas ? polygonArea3301(kits.geometry as never) : 0;
   const totalM2 = parcelM2 || 1;
 
@@ -94,13 +98,12 @@ export async function buildReport(tunnus: string) {
   let eeskiriUrl: string | null = null;
   let ruleDocs: { title: string; url: string; issuer: string; date: string }[] = [];
   if (nature[0]?.name) {
+    // Resolve only the akt ID → build the link. The panel needs the URL, not the
+    // 9–19 MB paragraph text (that's fetched lazily in the /api/chat answer).
     const akt = await resolveEeskiriAktSearch(nature[0].name).catch(() => null);
     if (akt) {
-      const e = await fetchEeskiriParagraphs(akt).catch(() => null);
-      if (e) {
-        eeskiriUrl = e.url;
-        ruleDocs = [{ title: `${nature[0].name} kaitse-eeskiri`, url: e.url, issuer: "Vabariigi Valitsus", date: "" }];
-      }
+      eeskiriUrl = `https://www.riigiteataja.ee/akt/${akt}`;
+      ruleDocs = [{ title: `${nature[0].name} kaitse-eeskiri`, url: eeskiriUrl, issuer: "Vabariigi Valitsus", date: "" }];
     }
   }
 
@@ -125,6 +128,8 @@ export async function buildReport(tunnus: string) {
       severity: severityOf(r.category, coveragePct),
       rule: r.category === "looduskaitse" ? "Kaitse-eeskiri" : undefined,
       ruleUrl: r.category === "looduskaitse" ? eeskiriUrl ?? undefined : undefined,
+      // "Open the source" — the official Maa-amet kitsenduste page for this parcel.
+      cardUrl: kitsendusedUrl,
       geometry: reproject3301to4326(r.geom ?? null), // 4326 for the map
     });
   }
@@ -179,6 +184,12 @@ export async function buildReport(tunnus: string) {
     center,
     geometry: g ?? null,
     zone: panel?.zone ?? null,
+    // Source links — where every data point can be opened/verified.
+    kitsendusedUrl,
+    sources: [
+      { title: "Maa-amet — kitsendused", url: kitsendusedUrl, issuer: "Maa- ja Ruumiamet" },
+      ...ruleDocs,
+    ],
     restrictions,
     species,
     speciesTotal: speciesItems.length,
