@@ -10,11 +10,12 @@ const EELIS_WFS = "https://gsavalik.envir.ee/geoserver/eelis/ows";
 // Colour per kitsendus category (catKey from /api/report) — matches the chips.
 const CAT_COLOR: Record<string, string> = {
   looduskaitse: "#b42318", liik: "#92740b", elektri: "#7c3aed", gaas: "#7c3aed",
-  side: "#7c3aed", tee: "#57534e", vesi: "#0e7490", muu: "#5b6b61",
+  side: "#7c3aed", tee: "#57534e", vesi: "#0e7490", vooras: "#ea580c", muu: "#5b6b61",
 };
 const CAT_ET: Record<string, string> = {
   looduskaitse: "Looduskaitse", liik: "Kaitsealune liik", elektri: "Elektriliin",
-  gaas: "Gaasitoru", side: "Sidevõrk", tee: "Tee", vesi: "Vesi", muu: "Muu",
+  gaas: "Gaasitoru", side: "Sidevõrk", tee: "Tee", vesi: "Vesi",
+  vooras: "Karuputk (võõrliik)", muu: "Muu",
 };
 // MapLibre "match" colour expression keyed on the feature's `cat` property.
 const COLOR_EXPR = [
