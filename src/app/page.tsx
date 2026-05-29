@@ -166,7 +166,7 @@ export default function Home() {
         >
           <PainterlyCanopy />
           <motion.div
-            className="w-full max-w-2xl text-center"
+            className="relative z-10 w-full max-w-2xl text-center"
             initial={{ opacity: 0, y: 16 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.5, ease: EASE }}
@@ -191,7 +191,7 @@ export default function Home() {
             </div>
           </motion.div>
 
-          <footer className="absolute bottom-5 text-xs text-[#14130f]/40">
+          <footer className="absolute bottom-5 z-10 text-xs text-[#14130f]/40">
             Andmed: EELIS · Maa-amet · Riigi Teataja — „Metsikult andmetes 2026“
           </footer>
         </motion.main>

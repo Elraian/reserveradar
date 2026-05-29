@@ -218,7 +218,7 @@ export default function PainterlyCanopy({
   // context is lost, the canvas fades out and this shows instead (no robot face).
   return (
     <div
-      className="pointer-events-none fixed inset-0 -z-10"
+      className="pointer-events-none fixed inset-0 z-0"
       style={{ background: "radial-gradient(125% 125% at 50% 10%, #f1f0ea 45%, #e2ded0 100%)" }}
     >
       <canvas
