@@ -88,12 +88,17 @@ export default function PainterlyCanopy({
 
     // Build (or rebuild, after a context-loss) the GL program + geometry.
     const buildGL = () => {
+      if (gl.isContextLost()) return; // nothing to build on a dead context
       const compile = (type: number, src: string) => {
         const s = gl.createShader(type)!;
         gl.shaderSource(s, src);
         gl.compileShader(s);
-        if (!gl.getShaderParameter(s, gl.COMPILE_STATUS))
-          console.error(gl.getShaderInfoLog(s));
+        // Don't surface failures while the context is lost — COMPILE_STATUS is
+        // false but the info log is null, which would spam a bogus error.
+        if (!gl.isContextLost() && !gl.getShaderParameter(s, gl.COMPILE_STATUS)) {
+          const log = gl.getShaderInfoLog(s);
+          if (log) console.error("[painterly-canopy] shader compile failed:", log);
+        }
         return s;
       };
       const prog = gl.createProgram()!;
