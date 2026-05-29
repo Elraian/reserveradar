@@ -83,6 +83,7 @@ export default function PainterlyCanopy({
     if (!cv) return;
     const gl = cv.getContext("webgl", { antialias: true, alpha: false });
     if (!gl) { cv.style.opacity = "0"; return; } // no WebGL → CSS gradient fallback shows
+    cv.style.opacity = "1"; // reset in case a prior mount left it hidden
 
     let u: Record<string, WebGLUniformLocation | null> = {};
 
@@ -210,7 +211,12 @@ export default function PainterlyCanopy({
       document.removeEventListener("visibilitychange", onVis);
       cv.removeEventListener("webglcontextlost", onLost);
       cv.removeEventListener("webglcontextrestored", onRestored);
-      gl.getExtension("WEBGL_lose_context")?.loseContext();
+      // NOTE: do NOT call WEBGL_lose_context.loseContext() here. Forcing context
+      // loss on unmount leaves the GPU tearing down resources, which makes the
+      // fresh getContext() on the next mount (idle → search → back to idle)
+      // return a dead/null context — the canvas then falls back to the static
+      // gradient. Letting the detached canvas be GC'd reclaims the context
+      // cleanly without breaking the remount.
     };
   }, [radius, green, speed]);
 

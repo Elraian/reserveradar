@@ -11,6 +11,17 @@ export const dynamic = "force-dynamic";
 // does NOT bypass the function timeout, so lift it off the ~10s default.
 export const maxDuration = 60;
 
+// CORS so the lentzUI app (different port/origin) can POST to /api/chat.
+const CORS = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Methods": "POST, OPTIONS",
+  "Access-Control-Allow-Headers": "Content-Type",
+};
+
+export function OPTIONS() {
+  return new Response(null, { status: 204, headers: CORS });
+}
+
 function frame(evt: ChatStreamEvent): string {
   return `data: ${JSON.stringify(evt)}\n\n`;
 }
@@ -75,6 +86,7 @@ function sseResponse(stream: ReadableStream): Response {
       "Cache-Control": "no-cache, no-transform",
       Connection: "keep-alive",
       "X-Accel-Buffering": "no",
+      ...CORS,
     },
   });
 }

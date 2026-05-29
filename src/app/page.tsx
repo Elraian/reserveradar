@@ -3,8 +3,7 @@
 import { useState } from "react";
 import dynamic from "next/dynamic";
 import { AnimatePresence, motion } from "framer-motion";
-import SearchBar from "@/components/lentz/SearchBar";
-import RuixenQueryBox from "@/components/lentz/ui/ruixen-query-box";
+import ParcelSearch from "@/components/lentz/ParcelSearch";
 import PainterlyCanopy from "@/components/lentz/ui/painterly-canopy";
 import TopicFilter, { TOPICS, type TopicKey } from "@/components/lentz/TopicFilter";
 import RiskReport from "@/components/lentz/RiskReport";
@@ -127,7 +126,7 @@ export default function Home() {
               ◎ Reserve Radar
             </button>
             <div className="mx-auto w-full max-w-xl">
-              <SearchBar variant="bar" initialValue={query} onSearch={handleSearch} />
+              <ParcelSearch variant="bar" initialValue={query} onSearch={handleSearch} />
             </div>
           </motion.header>
 
@@ -180,10 +179,7 @@ export default function Home() {
             </p>
 
             <div className="mx-auto mt-8 max-w-xl">
-              <RuixenQueryBox
-                onSubmit={handleSearch}
-                placeholder="Sisesta katastritunnus või aadress…"
-              />
+              <ParcelSearch variant="hero" onSearch={handleSearch} />
               <TopicFilter selected={topics} onToggle={toggleTopic} />
               {error && (
                 <p className="mt-4 text-sm text-red-600">{error}</p>

@@ -335,10 +335,35 @@
   animation: rr-fadein 200ms cubic-bezier(0.4, 0, 0.2, 1) both;
 }
 
+/* Hero search box: soft, always-on glow that gently breathes (same gentle
+   feel as a hover, but continuous — not triggered by hover/focus). */
+.rr-soft-glow {
+  animation: rrSoftGlow 3.4s ease-in-out infinite;
+}
+@keyframes rrSoftGlow {
+  0%,
+  100% {
+    box-shadow:
+      0 1px 2px rgba(20, 19, 15, 0.06),
+      0 0 16px -8px rgba(47, 93, 58, 0.28);
+  }
+  50% {
+    box-shadow:
+      0 1px 2px rgba(20, 19, 15, 0.06),
+      0 0 28px -6px rgba(47, 93, 58, 0.5);
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .rr-fadein,
   .rr-live-dot::after {
     animation: none !important;
+  }
+  .rr-soft-glow {
+    animation: none;
+    box-shadow:
+      0 1px 2px rgba(20, 19, 15, 0.06),
+      0 0 22px -7px rgba(47, 93, 58, 0.38);
   }
 }
 

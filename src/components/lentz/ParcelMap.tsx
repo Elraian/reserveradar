@@ -107,6 +107,10 @@ export default function ParcelMap({ report }: { report: ParcelReport }) {
             type: "raster",
             tiles: ["https://tile.openstreetmap.org/{z}/{x}/{y}.png"],
             tileSize: 256,
+            // OSM's tile server only serves up to z19. Cap here so MapLibre
+            // overzooms the z19 tiles instead of fetching z20+ (which 404 and
+            // spam the console with "Failed to fetch" AJAX errors).
+            maxzoom: 19,
             attribution: "© OpenStreetMap",
           },
         },
