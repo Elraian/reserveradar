@@ -341,3 +341,22 @@
     animation: none !important;
   }
 }
+
+/* ---- Lennart's landing skin (cream + ink) — scoped to the "/" page ---- */
+.lentz {
+  --background: #f1f0ea;
+  --foreground: #14130f;
+  --border: #d9d7cc;
+  --input: #d9d7cc;
+  --ring: #14130f;
+  --popover: #ffffff;
+  --popover-foreground: #14130f;
+  --primary: #14130f;
+  --primary-foreground: #f1f0ea;
+  --secondary: #ffffff;
+  --secondary-foreground: #14130f;
+  --accent: #e7e5dc;
+  --accent-foreground: #14130f;
+  --muted: #e7e5dc;
+  --muted-foreground: #6b675c;
+}
