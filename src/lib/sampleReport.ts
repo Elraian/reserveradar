@@ -65,6 +65,10 @@ export interface ParcelReport {
     good: string[]; // one short line each
     concerning: string[]; // one short line each
   };
+  // Protection zone from the EELIS sweep (reservaat / sihtkaitsevöönd /
+  // piiranguvöönd). Decides forest-management rights; the kitsendused API only
+  // names the kaitseala, not the zone, so we surface this separately.
+  zone?: string | null;
 }
 
 export const sampleReport: ParcelReport = {

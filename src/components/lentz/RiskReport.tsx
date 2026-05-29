@@ -16,6 +16,14 @@ const SEV: Record<Severity, { dot: string; ring: string; text: string; label: st
 
 const ha = (m2: number) => (m2 / 10000).toLocaleString("et-EE", { maximumFractionDigits: 2 });
 
+// Protection zone → short human label + what it means for management. Only the
+// meaningful zones; "teadmata vöönd"/null render nothing.
+const ZONE_INFO: Record<string, { label: string; note: string }> = {
+  reservaat: { label: "Reservaat", note: "Majandustegevus ja metsaraie keelatud" },
+  sihtkaitsevöönd: { label: "Sihtkaitsevöönd", note: "Metsaraie üldjuhul keelatud" },
+  piiranguvöönd: { label: "Piiranguvöönd", note: "Raie piiratud — vaja kooskõlastust" },
+};
+
 function Section({
   title,
   defaultOpen = false,
@@ -126,6 +134,16 @@ export default function RiskReport({
             </p>
           </div>
         </div>
+        {/* Protection zone — the EELIS sweep knows which vöönd; the kitsendused
+            list only names the kaitseala. This is what governs raie rights. */}
+        {report.zone && ZONE_INFO[report.zone] && (
+          <div className="mt-2 flex items-center gap-2 px-1 text-xs">
+            <span className="bg-[#14130f] px-2 py-0.5 font-semibold uppercase tracking-wide text-[#f1f0ea]">
+              {ZONE_INFO[report.zone].label}
+            </span>
+            <span className="text-[#14130f]/60">{ZONE_INFO[report.zone].note}</span>
+          </div>
+        )}
       </div>
 
       {/* key facts */}

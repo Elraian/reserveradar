@@ -108,6 +108,8 @@ const FILL_CATEGORIES = new Set<Category>(["protection", "zone", "natura"]);
 export function detectZone(areas: RawArea[]): string {
   const piirang = areas.find((a) => a.layer === "eelis:kr_piirang");
   const skv = areas.find((a) => a.layer.includes("skv"));
+  // Reservaat = strictest regime (no management at all) — report it above skv.
+  if (areas.some((a) => a.layer === "eelis:kr_reservaat")) return "reservaat";
   if (skv) return "sihtkaitsevöönd";
   if (piirang?.tyyp?.includes("P") || piirang?.nimi?.toLowerCase().includes(" pv"))
     return "piiranguvöönd";

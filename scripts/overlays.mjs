@@ -7,10 +7,13 @@ const LAYERS = [
   { layer: "eelis:kr_hoiuala",            category: "protection", label: "Hoiuala" },
   { layer: "eelis:kr_loodusala",          category: "natura",     label: "Natura 2000 loodusala", natura: true },
   { layer: "eelis:kr_linnuala",           category: "natura",     label: "Natura 2000 linnuala", natura: true },
+  { layer: "eelis:kr_reservaat",          category: "zone",       label: "Reservaat" },
   { layer: "eelis:kr_looduslik_skv",      category: "zone",       label: "Sihtkaitsevöönd (looduslik)" },
   { layer: "eelis:kr_hooldatav_skv",      category: "zone",       label: "Sihtkaitsevöönd (hooldatav)" },
   { layer: "eelis:kr_piirang",            category: "zone",       label: "Piiranguvöönd" },
   { layer: "eelis:kr_vep",                category: "species",    label: "Vääriselupaik (VEP)" },
+  { layer: "eelis:kr_yksikobjektid",      category: "species",    label: "Kaitsealune üksikobjekt" },
+  { layer: "eelis:kr_yksikobjekti_kaitsetsoon", category: "zone", label: "Üksikobjekti kaitsetsoon" },
   // III kaitsekategooria — the records the official app shows a dozen of.
   { layer: "eelis:kr_taimed_iii",         category: "species",    label: "III kaitsekategooria taim" },
   { layer: "eelis:kr_loomad_iii",         category: "species",    label: "III kaitsekategooria loom" },
