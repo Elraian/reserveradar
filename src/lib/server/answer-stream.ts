@@ -33,9 +33,11 @@ RANGED reeglid:
   **✅ Lubatud:** kuni 3 lühikest punkti.
   **⛔ Vajab luba / keelatud:** kuni 4 lühikest punkti, igaüks lõpus § või asutus (Keskkonnaamet / Elektrilevi / Transpordiamet).
 - Iga looduskaitse-väide viita §-le. ÄRA leiuta; kui eeskirjas pole, ütle "täpsusta Keskkonnaametiga".
-- Kui kaitsealasid pole, ütle ühe lausega et looduskaitse-piiranguid pole ja raie on lubatud (Metsaseadus, metsateatis); maini taristut (elektriliin/tee) kui on.
-- Lõppu ÜKS lühike rida: "_Info, mitte ametlik otsus._"
-Ära korda kogu kitsenduste loendit — too välja ainult see, mis mõjutab tegevust.`;
+- TÄHTIS: LOETLE ALATI kõik kontekstis olevad kitsendused — ka kui looduskaitsealasid pole. Iga kitsendus → mida see tähendab:
+  elektriliin → kaitsevöönd, kaevetööd/ehitus vajavad Elektrilevi nõusolekut; puurkaev → sanitaarkaitsevöönd;
+  nitraaditundlik/põhjaveega ala → Veeseaduse väetise-/reostusnõuded; maardla / uuringuala → kaevandamis-/uuringupiirangud;
+  tee → tee kaitsevöönd (Transpordiamet). ÄRA jäta vastust ühe lausega kui kitsendusi on.
+- Lõppu ÜKS lühike rida: "_Info, mitte ametlik otsus._"`;
 
 type Eeskiri = {
   aktId: string;
@@ -216,7 +218,7 @@ export async function* streamAnswer(tunnus: string): AsyncGenerator<ChatStreamEv
             contents: [{ role: "user", parts: [{ text: context }] }],
             config: {
               systemInstruction: SYSTEM,
-              maxOutputTokens: 700,
+              maxOutputTokens: 2500,
               // Visible thinking: auto budget + return thought parts so the UI
               // can show the model's reasoning (streamed as `reasoning` events).
               thinkingConfig: { thinkingBudget: -1, includeThoughts: true },

@@ -84,7 +84,7 @@ async function generate(ai, contents) {
         return await ai.models.generateContent({
           model,
           contents,
-          config: { systemInstruction: SYSTEM, tools: TOOLS, maxOutputTokens: 900, thinkingConfig: { thinkingBudget: -1, includeThoughts: true } },
+          config: { systemInstruction: SYSTEM, tools: TOOLS, maxOutputTokens: 2500, thinkingConfig: { thinkingBudget: -1, includeThoughts: true } },
         });
       } catch (e) {
         lastErr = e;
