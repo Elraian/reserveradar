@@ -9,9 +9,21 @@ proj4.defs(
 );
 
 export function reproject3301to4326(
-  geom: { type: string; coordinates: unknown } | null | undefined,
+  geom: { type: string; coordinates?: unknown; geometries?: unknown } | null | undefined,
 ): GeoJSON.Geometry | null {
   if (!geom) return null;
+  // GeometryCollection has `geometries`, not `coordinates` — recurse into each
+  // member (otherwise it produced a broken {coordinates: undefined} that drew
+  // nowhere, e.g. some "üle 10 ha veekogu" water features).
+  if (geom.type === "GeometryCollection") {
+    const members = Array.isArray(geom.geometries) ? geom.geometries : [];
+    return {
+      type: "GeometryCollection",
+      geometries: members
+        .map((g) => reproject3301to4326(g as { type: string; coordinates?: unknown }))
+        .filter(Boolean),
+    } as GeoJSON.Geometry;
+  }
   const map = (c: unknown): unknown =>
     Array.isArray(c) && typeof c[0] === "number"
       ? proj4("EPSG:3301", "EPSG:4326", c as number[])

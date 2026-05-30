@@ -100,7 +100,16 @@ function kitsendusedFC(report: ParcelReport): GeoJSON.FeatureCollection {
   const feats: GeoJSON.Feature[] = [];
   const push = (f: ReportFeature, cat: string, label: string) => {
     if (!f.geometry) return;
-    feats.push({ type: "Feature", geometry: f.geometry, properties: { cat, label } });
+    const g = f.geometry as GeoJSON.Geometry;
+    // Flatten GeometryCollection into its members — the type-filtered layers
+    // (Polygon/Line/Point) don't match a GeometryCollection, so it'd draw
+    // nowhere otherwise.
+    if (g.type === "GeometryCollection") {
+      for (const sub of (g.geometries ?? []))
+        feats.push({ type: "Feature", geometry: sub, properties: { cat, label } });
+    } else {
+      feats.push({ type: "Feature", geometry: g, properties: { cat, label } });
+    }
   };
   for (const r of ((report as unknown as { restrictions: ReportFeature[] }).restrictions ?? []))
     push(r, r.catKey ?? "muu", r.title ?? r.area ?? "Kitsendus");

@@ -199,6 +199,26 @@ export default function RiskReport({
             </span>
           )}
         </div>
+        {report.species.length > 0 && (
+          <div className="mt-3 bg-black/[0.03] p-3 text-xs leading-relaxed text-[#14130f]/70 ring-1 ring-black/10">
+            <p className="mb-1 font-semibold text-[#14130f]/80">Mida see raie jaoks tähendab?</p>
+            <p>
+              III kaitsekategooria liikide isendite ja nende elupaikade hävitamine on
+              keelatud (
+              <a
+                href="https://www.riigiteataja.ee/akt/LKS"
+                target="_blank"
+                rel="noreferrer"
+                className="underline decoration-black/40 underline-offset-2 hover:text-[#14130f]"
+              >
+                Looduskaitseseadus §55
+              </a>
+              ). Raie ei ole automaatselt keelatud, kuid see ei tohi liigi elupaika
+              kahjustada. Kindlat „millal tohib raiuda“ kuupäeva avaandmetes pole — enne
+              raiet kooskõlasta Keskkonnaametiga.
+            </p>
+          </div>
+        )}
         <p className="mt-2 text-xs text-[#14130f]/40">
           III kategooria kaitsealused liigid (EELIS). I–II kategooria andmed on
           piiratud juurdepääsuga.
