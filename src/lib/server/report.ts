@@ -235,29 +235,48 @@ export async function buildReport(tunnus: string) {
   }
 
   // Restrictions (dedup species-style repeats by name).
-  const seen = new Set<string>();
+  // GROUP duplicates by kind (the official kitsendused app lists every segment
+  // separately — e.g. 16 "Elektripaigaldise kaitsevöönd"). We keep EVERY
+  // geometry for the map but collapse the panel into one row per kind with a
+  // count + summed area, so it's readable AND complete (was: drop-dupes, which
+  // also lost their geometry from the map).
   const restrictions = [] as Array<Record<string, unknown>>;
   const speciesItems: KitsRestriction[] = [];
+  type Geom = { type: string; coordinates?: unknown; geometries?: unknown };
+  const flat = (arr: Geom[], g: Geom | null) => {
+    if (!g) return;
+    if (g.type === "GeometryCollection") for (const m of ((g.geometries as Geom[]) ?? [])) flat(arr, m);
+    else arr.push(g);
+  };
+  const groups = new Map<string, { category: string; kind: string; name: string | null; count: number; areaM2: number; geoms: Geom[] }>();
   for (const r of kits.restrictions as KitsRestriction[]) {
     if (r.category === "liik") { speciesItems.push(r); continue; }
-    const key = `${r.category}:${r.name}`;
-    if (seen.has(key)) continue;
-    seen.add(key);
-    const areaM2 = r.area_m2 ?? 0;
-    const coveragePct = Math.min(100, Math.round((areaM2 / totalM2) * 1000) / 10);
+    const kind = r.kind ?? r.name ?? "Kitsendus";
+    const key = `${r.category}:${kind}`;
+    let g = groups.get(key);
+    if (!g) { g = { category: r.category, kind, name: r.name ?? null, count: 0, areaM2: 0, geoms: [] }; groups.set(key, g); }
+    g.count++;
+    g.areaM2 += r.area_m2 ?? 0;
+    flat(g.geoms, reproject3301to4326(r.geom ?? null) as Geom | null);
+  }
+  for (const g of groups.values()) {
+    const coveragePct = Math.min(100, Math.round((g.areaM2 / totalM2) * 1000) / 10);
+    const geometry = g.geoms.length === 1 ? g.geoms[0]
+      : g.geoms.length > 1 ? { type: "GeometryCollection", geometries: g.geoms }
+      : null;
     restrictions.push({
-      category: CAT_LABEL[r.category] ?? "Muu",
-      catKey: r.category, // raw key → drives map colour
-      title: r.kind ?? r.name ?? "Kitsendus",
-      area: r.name ?? r.kind ?? "",
-      areaM2,
+      category: CAT_LABEL[g.category] ?? "Muu",
+      catKey: g.category, // raw key → drives map colour
+      title: g.count > 1 ? `${g.kind} (${g.count} tk)` : g.kind,
+      area: g.count > 1 ? `${g.count} eraldi objekti` : (g.name ?? ""),
+      areaM2: g.areaM2,
       coveragePct,
-      severity: severityOf(r.category, coveragePct),
-      rule: r.category === "looduskaitse" ? "Kaitse-eeskiri" : undefined,
-      ruleUrl: r.category === "looduskaitse" ? eeskiriUrl ?? undefined : undefined,
+      severity: severityOf(g.category, coveragePct),
+      rule: g.category === "looduskaitse" ? "Kaitse-eeskiri" : undefined,
+      ruleUrl: g.category === "looduskaitse" ? eeskiriUrl ?? undefined : undefined,
       // "Open the source" — the official Maa-amet kitsenduste page for this parcel.
       cardUrl: kitsendusedUrl,
-      geometry: reproject3301to4326(r.geom ?? null), // 4326 for the map
+      geometry,
     });
   }
 
