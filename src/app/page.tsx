@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import dynamic from "next/dynamic";
 import { AnimatePresence, motion } from "framer-motion";
 import ParcelSearch from "@/components/lentz/ParcelSearch";
@@ -43,11 +43,22 @@ export default function Home() {
     });
   }
 
+  // Restore the searched parcel from the URL (?k=tunnus) on load, so a refresh
+  // or shared link doesn't drop you back to the empty search.
+  useEffect(() => {
+    const k = new URLSearchParams(window.location.search).get("k");
+    if (k) handleSearch(k);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   async function handleSearch(q: string) {
     const tunnus = q.trim();
     setQuery(tunnus);
     setError(null);
     setView("loading");
+    // Keep the URL in sync so refresh/share restores this parcel.
+    if (typeof window !== "undefined")
+      window.history.replaceState(null, "", `?k=${encodeURIComponent(tunnus)}`);
     try {
       const res = await fetch(
         `${BACKEND}/api/report/${encodeURIComponent(tunnus)}`

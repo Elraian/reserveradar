@@ -48,6 +48,8 @@ RANGED reeglid:
   **✅ Lubatud:** kuni 3 lühikest punkti.
   **⛔ Vajab luba / keelatud:** kuni 4 lühikest punkti, igaüks lõpus § või asutus (Keskkonnaamet / Elektrilevi / Transpordiamet).
 - Iga looduskaitse-väide viita §-le. ÄRA leiuta; kui eeskirjas pole, ütle "täpsusta Keskkonnaametiga".
+- KUI KAITSE-EESKIRI ON ANTUD (allpool): toetu SELLELE konkreetselt — too eeskirjast välja, mida tohib/ei tohi
+  metsa raie, ehituse, liikumise ja majandustegevuse osas, viidates täpsele §-le. ÄRA piirdu kaitseala nime mainimisega.
 - VIITED KLIKITAVAKS: kui viitad seadusele või kaitse-eeskirjale, vorminda see Markdown-lingina kujul [Looduskaitseseadus §14](URL).
   Kasuta AINULT alloleva "VIITED" ploki URL-e — ÄRA leiuta ega muuda URL-e. Kui sobivat URL-i pole, kirjuta seaduse nimi ilma lingita.
 - TÄHTIS: LOETLE ALATI kõik kontekstis olevad kitsendused — ka kui looduskaitsealasid pole. Iga kitsendus → mida see tähendab:
@@ -263,10 +265,13 @@ export async function* streamAnswer(tunnus: string, question = ""): AsyncGenerat
             contents: [{ role: "user", parts: [{ text: context }] }],
             config: {
               systemInstruction: SYSTEM,
-              maxOutputTokens: 2500,
-              // Visible thinking: auto budget + return thought parts so the UI
-              // can show the model's reasoning (streamed as `reasoning` events).
-              thinkingConfig: { thinkingBudget: -1, includeThoughts: true },
+              // Thinking tokens count against this budget in Gemini, so a low
+              // cap (2500) let reasoning eat the budget and the ANSWER got cut
+              // off mid-sentence. Give ample room for thinking + the full answer.
+              maxOutputTokens: 8000,
+              // Bounded thinking budget so reasoning can't run away with latency
+              // or the token budget, while still leaving the answer plenty.
+              thinkingConfig: { thinkingBudget: 2048, includeThoughts: true },
             },
           });
           break;
