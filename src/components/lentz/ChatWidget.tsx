@@ -255,7 +255,7 @@ export default function ChatWidget({ report }: { report: ParcelReport }) {
                       variants={messageVariants}
                       initial="hidden"
                       animate="visible"
-                      className={`max-w-[85%] rounded-2xl px-3.5 py-2 text-sm leading-relaxed ${
+                      className={`max-w-[85%] overflow-hidden break-words [overflow-wrap:anywhere] rounded-2xl px-3.5 py-2 text-sm leading-relaxed ${
                         m.role === "user"
                           ? "ml-auto rounded-br-sm bg-[#14130f] text-[#f1f0ea]"
                           : "rounded-bl-sm bg-white text-[#14130f]/85 ring-1 ring-[#2f5d3a]/12"
