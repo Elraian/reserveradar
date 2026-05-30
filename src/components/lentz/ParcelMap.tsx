@@ -113,8 +113,14 @@ function kitsendusedFC(report: ParcelReport): GeoJSON.FeatureCollection {
       feats.push({ type: "Feature", geometry: g, properties: { cat, label } });
     }
   };
-  for (const r of ((report as unknown as { restrictions: ReportFeature[] }).restrictions ?? []))
+  for (const r of ((report as unknown as { restrictions: ReportFeature[] }).restrictions ?? [])) {
+    // Skip looduskaitse here — the kitsendused geometry is only the parcel's
+    // (often tiny) overlap with the kaitseala. The full protected area is drawn
+    // by the green "Kaitseala / hoiuala" overlay (report.overlays). Drawing both
+    // duplicated it and showed a sub-pixel red sliver that looked like nothing.
+    if (r.catKey === "looduskaitse") continue;
     push(r, r.catKey ?? "muu", r.title ?? r.area ?? "Kitsendus");
+  }
   // Protected species often share one habitat polygon (e.g. 5 orchids in the
   // same meadow). Group by geometry so each area is drawn ONCE and its popup
   // lists every species in it — instead of 5 identical polygons stacked, with
