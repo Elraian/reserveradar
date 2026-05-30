@@ -130,7 +130,7 @@ export default function RiskReport({
           <div>
             <p className={`font-semibold ${s.text}`}>{s.label}</p>
             <p className="text-xs text-[#14130f]/50">
-              {report.restrictions.length} kitsendust · {report.speciesTotal} kaitsealust liiki
+              {(report as { restrictionsTotal?: number }).restrictionsTotal ?? report.restrictions.length} kitsendust · {report.speciesTotal} kaitsealust liiki
             </p>
           </div>
         </div>

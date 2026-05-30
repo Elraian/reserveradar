@@ -420,6 +420,11 @@ export async function buildReport(tunnus: string) {
       ...ruleDocs,
     ],
     restrictions,
+    // Total INDIVIDUAL restrictions (the panel banner) — grouped rows collapse
+    // many segments, so count the underlying objects to match the official app:
+    // sum of grouped kitsendused counts + each extra row (shore zones, rohev…).
+    restrictionsTotal:
+      [...groups.values()].reduce((s, g) => s + g.count, 0) + (restrictions.length - groups.size),
     species,
     speciesTotal: speciesItems.length,
     forestStands,

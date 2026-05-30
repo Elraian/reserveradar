@@ -52,6 +52,7 @@ export interface ParcelReport {
   restrictions: Restriction[];
   species: Species[];
   speciesTotal: number;
+  restrictionsTotal?: number; // total individual restrictions (rows are grouped)
   forestStands: number;
   fellingNotices: number;
   ruleDocs: RuleDoc[];
