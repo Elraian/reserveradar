@@ -432,6 +432,17 @@ function MessageBody({ text }: { text: string }) {
 
   for (const raw of lines) {
     const line = raw.trim();
+    // Markdown heading (##, ###, …) → a small bold heading line.
+    const h = line.match(/^#{1,4}\s+(.*)$/);
+    if (h) {
+      flush();
+      out.push(
+        <p key={`h-${out.length}`} className="mt-2 mb-0.5 font-semibold text-[#14130f]">
+          {inline(h[1])}
+        </p>,
+      );
+      continue;
+    }
     const m = line.match(/^[-*]\s+(.*)$/);
     if (m) {
       bullets.push(m[1]);
