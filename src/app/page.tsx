@@ -134,25 +134,22 @@ export default function Home() {
           exit={{ opacity: 0 }}
           transition={{ duration: 0.45, ease: EASE }}
         >
-          {/* top bar: logo (back to landing) on the left, search centered */}
+          {/* top bar: logo (back to landing) pinned left, search centered in flow */}
           <motion.header
-            className="relative z-10 flex items-center border-b border-black/10 bg-white/90 px-4 py-2.5 backdrop-blur"
+            className="relative z-10 flex items-center justify-center border-b border-black/10 bg-white/90 px-4 py-2.5 backdrop-blur"
             initial={{ y: -24, opacity: 0 }}
             animate={{ y: 0, opacity: 1 }}
             transition={{ duration: 0.4, ease: EASE }}
           >
             <button
               onClick={goHome}
-              className="relative z-10 shrink-0 text-lg font-bold tracking-tight text-[#14130f] transition hover:opacity-70"
+              className="absolute left-4 top-1/2 hidden -translate-y-1/2 text-lg font-bold tracking-tight text-[#14130f] transition hover:opacity-70 md:block"
               title="Tagasi avalehele"
             >
               ◎ Reserve Radar
             </button>
-            {/* dead-centered in the full header width, independent of the logo */}
-            <div className="pointer-events-none absolute inset-x-0 flex justify-center px-4">
-              <div className="pointer-events-auto w-full max-w-xl">
-                <ParcelSearch variant="bar" initialValue={query} onSearch={handleSearch} />
-              </div>
+            <div className="w-full max-w-xl">
+              <ParcelSearch variant="bar" initialValue={query} onSearch={handleSearch} />
             </div>
           </motion.header>
 
