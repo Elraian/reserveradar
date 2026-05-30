@@ -246,6 +246,16 @@ export default function RiskReport({
         <SummaryList tone="text-[#14130f]" items={report.summary.allowed} title="Mida tohid" />
         <SummaryList tone="text-[#14130f]/70" items={report.summary.forbidden} title="Mida ei tohi" />
         <SummaryList tone="text-[#14130f]/70" items={report.summary.consider} title="Mida pead arvestama" />
+        {report.ruleDocs?.[0]?.url && (
+          <a
+            href={report.ruleDocs[0].url}
+            target="_blank"
+            rel="noreferrer"
+            className="mt-3 inline-block text-xs font-medium text-[#14130f] underline decoration-black/40 underline-offset-2 hover:decoration-black"
+          >
+            Loe kaitse-eeskirja → {report.ruleDocs[0].title}
+          </a>
+        )}
         <p className="mt-3 text-[11px] leading-relaxed text-[#14130f]/40">
           See on informatiivne kokkuvõte avaandmete põhjal, mitte juriidiline
           nõuanne. Täpsete tingimuste osas pöördu Keskkonnaameti poole.
