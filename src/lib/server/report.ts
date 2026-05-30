@@ -27,7 +27,8 @@ type KitsRestriction = {
 const CAT_LABEL: Record<string, string> = {
   looduskaitse: "Looduskaitse", liik: "Kaitsealune liik", elektri: "Elektriliin",
   gaas: "Gaasitoru", side: "Sidevõrk", tee: "Tee", vesi: "Vesi",
-  maavara: "Maavara / uuring", parand: "Pärandkultuur", uleujutus: "Üleujutusala", muu: "Muu",
+  maavara: "Maavara / uuring", parand: "Pärandkultuur", uleujutus: "Üleujutusala",
+  rohev: "Rohevõrgustik", muu: "Muu",
 };
 
 function severityOf(category: string, coveragePct: number): Severity {
@@ -167,6 +168,8 @@ function buildSummary(
     consider.push("Vee-/põhjaveekaitse alal on väetiste ja taimekaitsevahendite kasutamine piiratud; ranna/kalda vööndis ehitus piiratud");
   if (cats.has("uleujutus"))
     consider.push("Korduva üleujutuse ala — ehitus- ja kuivendustööd piiratud");
+  if (cats.has("rohev"))
+    consider.push("Rohevõrgustiku koridor — üldplaneering piirab arendust ja metsa ulatuslikku killustamist");
   if (cats.has("vooras"))
     consider.push("Karuputke koloonia: tõrje on kohustuslik; majandamine lubatud vaid leviku tõrjumisel");
   if (speciesCount > 0)
@@ -299,6 +302,22 @@ export async function buildReport(tunnus: string) {
       coveragePct: 0,
       severity: "amber",
       cardUrl: kitsendusedUrl,
+      geometry: a.geometry ?? null,
+    });
+  }
+
+  // Rohevõrgustik (green-network corridor) from spatial planning.
+  for (const a of (panel?.areas ?? []).filter((x) => x.layer === "planeeringud:yld_plan_rohev")) {
+    restrictions.push({
+      category: "Rohevõrgustik",
+      catKey: "rohev",
+      title: "Rohevõrgustik",
+      area: a.nimi || "Rohevõrgustiku koridor",
+      areaM2: 0,
+      coveragePct: 0,
+      severity: "amber",
+      rule: "Planeeringuline (üldplaneering) — piirab arendust ja killustamist",
+      cardUrl: "https://planeeringud.ee/",
       geometry: a.geometry ?? null,
     });
   }

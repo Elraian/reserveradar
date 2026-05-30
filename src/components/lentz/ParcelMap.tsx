@@ -9,13 +9,13 @@ import type { ParcelReport } from "@/lib/sampleReport";
 const CAT_COLOR: Record<string, string> = {
   looduskaitse: "#b42318", liik: "#92740b", elektri: "#7c3aed", gaas: "#7c3aed",
   side: "#7c3aed", tee: "#57534e", vesi: "#0e7490", vooras: "#ea580c",
-  maavara: "#a16207", parand: "#9d174d", uleujutus: "#0284c7", muu: "#5b6b61",
+  maavara: "#a16207", parand: "#9d174d", uleujutus: "#0284c7", rohev: "#65a30d", muu: "#5b6b61",
 };
 const CAT_ET: Record<string, string> = {
   looduskaitse: "Looduskaitse", liik: "Kaitsealune liik", elektri: "Elektriliin",
   gaas: "Gaasitoru", side: "Sidevõrk", tee: "Tee", vesi: "Vesi",
   vooras: "Karuputk (võõrliik)", maavara: "Maavara / uuring", parand: "Pärandkultuur",
-  uleujutus: "Üleujutusala", muu: "Muu",
+  uleujutus: "Üleujutusala", rohev: "Rohevõrgustik", muu: "Muu",
 };
 // MapLibre "match" colour expression keyed on the feature's `cat` property.
 const COLOR_EXPR = [

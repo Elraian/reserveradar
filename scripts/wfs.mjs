@@ -11,6 +11,8 @@ const HOSTS = {
   // Precomputed forest-use restriction zones (shore/flood/fertiliser) — the
   // "kitsendused" workspace, same root endpoint.
   kitsendused: "https://gsavalik.envir.ee/geoserver/wfs",
+  // Spatial-planning data (ÜP/DP mirror of PLANIS) incl. rohevõrgustik.
+  planeeringud: "https://gsavalik.envir.ee/geoserver/wfs",
 };
 
 function workspaceOf(layer) {

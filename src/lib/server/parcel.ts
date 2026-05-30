@@ -9,6 +9,7 @@ import { getProtectionAreas } from "@scripts/overlays.mjs";
 import { getKitsendused } from "@scripts/kitsendused.mjs";
 import { getKaruputk } from "@scripts/karuputk.mjs";
 import { getForestZones } from "@scripts/forestzones.mjs";
+import { getRohevorgustik } from "@scripts/planeeringud.mjs";
 import { reproject3301to4326 } from "./geo";
 import type { AreaOverlay, Category, ParcelGeometry, ParcelResult } from "@/lib/types";
 
@@ -199,6 +200,23 @@ export async function resolveOverlays(tunnus: string): Promise<OverlaySweep> {
         kr_kood: null,
         tyyp: z.kind, // "vesi" | "uleujutus" → drives the report catKey/colour
         geom4326: reproject3301to4326(z.geom ?? null),
+      });
+    }
+  }
+
+  // Rohevõrgustik (green-network corridor) from spatial planning — a softer,
+  // municipality-level land-use signal (not nature protection).
+  if (kits?.geometry) {
+    const rohev = await getRohevorgustik(kits.geometry).catch(() => []);
+    for (const r of rohev as Array<{ name?: string | null; omavalitsus?: string | null; geom?: { type: string; coordinates: unknown } | null }>) {
+      extra.push({
+        layer: "planeeringud:yld_plan_rohev",
+        category: "info",
+        label: r.name || "Rohevõrgustik",
+        nimi: r.omavalitsus ? `${r.name} (${r.omavalitsus})` : r.name || "Rohevõrgustik",
+        kr_kood: null,
+        tyyp: "rohev", // → report catKey/colour
+        geom4326: reproject3301to4326(r.geom ?? null),
       });
     }
   }
