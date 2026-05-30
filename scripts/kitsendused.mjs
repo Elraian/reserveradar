@@ -23,6 +23,8 @@ function categorize(feature, type) {
   // Mineral deposits & geological survey areas — the most common "Muu" before.
   if (/MAARDLA|MAAVARA|UURING|TURVAS|KAEVANDA|PÕLEVKIVI|POLEVKIVI|LIIV|KRUUS|PUISTANG/i.test(f)) return "maavara";
   if (/PÄRAND|PARAND|MUINSUS|ARHEOLOOG|KULTUURIMÄLESTIS/i.test(f)) return "parand";
+  // Planning designations (dense-settlement zone, planning areas, detail plans).
+  if (/TIHEASUSTUS|HAJAASUSTUS|PLANEERING|DETAILPLAN|ÜLDPLAN|YLDPLAN/i.test(f)) return "planeering";
   return "muu";
 }
 

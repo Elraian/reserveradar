@@ -24,6 +24,9 @@ const KITS_CAT_MAP: Record<string, Category> = {
   side: "utility",
   tee: "road",
   vesi: "water",
+  maavara: "info", // mineral deposit / survey area
+  parand: "info", // heritage
+  planeering: "info", // planning / dense-settlement designation
   muu: "info",
 };
 

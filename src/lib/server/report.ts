@@ -28,7 +28,7 @@ const CAT_LABEL: Record<string, string> = {
   looduskaitse: "Looduskaitse", liik: "Kaitsealune liik", elektri: "Elektriliin",
   gaas: "Gaasitoru", side: "Sidevõrk", tee: "Tee", vesi: "Vesi",
   maavara: "Maavara / uuring", parand: "Pärandkultuur", uleujutus: "Üleujutusala",
-  rohev: "Rohevõrgustik", muu: "Muu",
+  rohev: "Rohevõrgustik", planeering: "Planeering / asustus", muu: "Muu",
 };
 
 function severityOf(category: string, coveragePct: number): Severity {
