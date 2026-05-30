@@ -51,6 +51,17 @@ export default function Home() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // Back to the landing hero — clear the parcel AND the ?k= URL so a refresh
+  // here shows the landing, not the last parcel.
+  function goHome() {
+    setView("idle");
+    setReport(null);
+    setError(null);
+    setQuery("");
+    if (typeof window !== "undefined")
+      window.history.replaceState(null, "", window.location.pathname);
+  }
+
   async function handleSearch(q: string) {
     const tunnus = q.trim();
     setQuery(tunnus);
@@ -123,21 +134,25 @@ export default function Home() {
           exit={{ opacity: 0 }}
           transition={{ duration: 0.45, ease: EASE }}
         >
-          {/* top search bar */}
+          {/* top bar: logo (back to landing) on the left, search centered */}
           <motion.header
-            className="z-10 flex items-center gap-3 border-b border-black/10 bg-white/90 px-4 py-2.5 backdrop-blur"
+            className="relative z-10 flex items-center border-b border-black/10 bg-white/90 px-4 py-2.5 backdrop-blur"
             initial={{ y: -24, opacity: 0 }}
             animate={{ y: 0, opacity: 1 }}
             transition={{ duration: 0.4, ease: EASE }}
           >
             <button
-              onClick={() => setView("idle")}
-              className="text-lg font-bold tracking-tight text-[#14130f]"
+              onClick={goHome}
+              className="relative z-10 shrink-0 text-lg font-bold tracking-tight text-[#14130f] transition hover:opacity-70"
+              title="Tagasi avalehele"
             >
               ◎ Reserve Radar
             </button>
-            <div className="mx-auto w-full max-w-xl">
-              <ParcelSearch variant="bar" initialValue={query} onSearch={handleSearch} />
+            {/* dead-centered in the full header width, independent of the logo */}
+            <div className="pointer-events-none absolute inset-x-0 flex justify-center px-4">
+              <div className="pointer-events-auto w-full max-w-xl">
+                <ParcelSearch variant="bar" initialValue={query} onSearch={handleSearch} />
+              </div>
             </div>
           </motion.header>
 
