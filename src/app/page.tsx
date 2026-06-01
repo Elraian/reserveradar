@@ -9,6 +9,7 @@ import TopicFilter, { TOPICS, type TopicKey } from "@/components/lentz/TopicFilt
 import RiskReport from "@/components/lentz/RiskReport";
 import ChatWidget from "@/components/lentz/ChatWidget";
 import GlobeLoader from "@/components/lentz/GlobeLoader";
+import FeedbackForm from "@/components/lentz/FeedbackForm";
 import { type ParcelReport } from "@/lib/sampleReport";
 
 const ParcelMap = dynamic(() => import("@/components/lentz/ParcelMap"), {
@@ -30,6 +31,7 @@ export default function Home() {
   const [query, setQuery] = useState("");
   const [report, setReport] = useState<ParcelReport | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [showFeedback, setShowFeedback] = useState(false);
   const [topics, setTopics] = useState<Set<TopicKey>>(
     () => new Set(TOPICS.map((t) => t.key))
   );
@@ -62,6 +64,20 @@ export default function Home() {
       window.history.replaceState(null, "", window.location.pathname);
   }
 
+  // After the tool's been used a couple of times, invite feedback (once).
+  function maybeOfferFeedback() {
+    try {
+      if (localStorage.getItem("rr_feedback_done") || sessionStorage.getItem("rr_feedback_seen"))
+        return;
+      const n = (parseInt(localStorage.getItem("rr_searches") || "0", 10) || 0) + 1;
+      localStorage.setItem("rr_searches", String(n));
+      if (n >= 2) {
+        sessionStorage.setItem("rr_feedback_seen", "1");
+        setTimeout(() => setShowFeedback(true), 1400);
+      }
+    } catch {}
+  }
+
   async function handleSearch(q: string) {
     const tunnus = q.trim();
     setQuery(tunnus);
@@ -84,6 +100,7 @@ export default function Home() {
       const data: ParcelReport = await res.json();
       setReport(data);
       setView("report");
+      maybeOfferFeedback();
     } catch {
       setError(
         "Süsteem ei vastanud. Kontrolli, et taustasüsteem töötab (port 3005)."
@@ -216,6 +233,7 @@ export default function Home() {
         </motion.main>
       )}
     </AnimatePresence>
+    <FeedbackForm open={showFeedback} onClose={() => setShowFeedback(false)} tunnus={query} />
     </div>
   );
 }

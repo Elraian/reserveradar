@@ -2,6 +2,7 @@ import "./globals.css";
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import { cn } from "@/lib/utils";
+import AuthGate from "@/components/lentz/AuthGate";
 
 const geist = Geist({ subsets: ["latin"], variable: "--font-sans" });
 const geistMono = Geist_Mono({ subsets: ["latin"], variable: "--font-mono" });
@@ -19,7 +20,9 @@ export default function RootLayout({
 }) {
   return (
     <html lang="et" className={cn(geist.variable, geistMono.variable)} suppressHydrationWarning>
-      <body className="font-sans antialiased" suppressHydrationWarning>{children}</body>
+      <body className="font-sans antialiased" suppressHydrationWarning>
+        <AuthGate>{children}</AuthGate>
+      </body>
     </html>
   );
 }
