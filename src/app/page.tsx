@@ -10,6 +10,7 @@ import RiskReport from "@/components/lentz/RiskReport";
 import ChatWidget from "@/components/lentz/ChatWidget";
 import GlobeLoader from "@/components/lentz/GlobeLoader";
 import FeedbackForm from "@/components/lentz/FeedbackForm";
+import { track } from "@/lib/track";
 import { type ParcelReport } from "@/lib/sampleReport";
 
 const ParcelMap = dynamic(() => import("@/components/lentz/ParcelMap"), {
@@ -83,6 +84,7 @@ export default function Home() {
     setQuery(tunnus);
     setError(null);
     setView("loading");
+    track("search", { tunnus });
     // Keep the URL in sync so refresh/share restores this parcel.
     if (typeof window !== "undefined")
       window.history.replaceState(null, "", `?k=${encodeURIComponent(tunnus)}`);
@@ -94,12 +96,17 @@ export default function Home() {
         setReport(null);
         setError(`Katastritunnust ${tunnus} ei leitud kehtivas katastris.`);
         setView("idle");
+        track("search_notfound", { tunnus });
         return;
       }
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const data: ParcelReport = await res.json();
       setReport(data);
       setView("report");
+      track("report_view", {
+        tunnus,
+        props: { restrictions: data.restrictions?.length ?? 0, species: data.speciesTotal ?? 0 },
+      });
       maybeOfferFeedback();
     } catch {
       setError(

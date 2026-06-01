@@ -4,6 +4,7 @@ import { useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { X } from "lucide-react";
 import { submitFeedback } from "@/lib/feedback";
+import { track } from "@/lib/track";
 
 const EASE = [0.22, 1, 0.36, 1] as const;
 
@@ -46,6 +47,7 @@ export default function FeedbackForm({
         tunnus: tunnus ?? null,
       });
       setDone(true);
+      track("feedback_submit", { tunnus: tunnus ?? null, props: { kasulikkus: f.kasulikkus || null } });
       try {
         localStorage.setItem("rr_feedback_done", "1");
       } catch {}

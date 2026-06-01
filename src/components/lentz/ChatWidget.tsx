@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { MessageCircle, X, Send, Sparkles } from "lucide-react";
 import type { ParcelReport } from "@/lib/sampleReport";
+import { track } from "@/lib/track";
 
 interface Step {
   id: string;
@@ -104,6 +105,7 @@ export default function ChatWidget({ report }: { report: ParcelReport }) {
   // Stream the AI explanation for this parcel from the backend /api/chat (SSE).
   async function send(text: string) {
     if (!text.trim() || busy) return;
+    track("chat_send", { tunnus: report.tunnus, props: { question: text } });
     setInput("");
     setMsgs((m) => [...m, { role: "user", text }, { role: "assistant", text: "" }]);
     setBusy(true);
@@ -315,7 +317,7 @@ export default function ChatWidget({ report }: { report: ParcelReport }) {
 
       {/* toggle button */}
       <motion.button
-        onClick={() => setOpen((o) => !o)}
+        onClick={() => setOpen((o) => { if (!o) track("chat_open", { tunnus: report.tunnus }); return !o; })}
         whileHover={{ scale: 1.04 }}
         whileTap={{ scale: 0.96 }}
         className="pointer-events-auto flex items-center gap-2 rounded-full bg-[#14130f] px-5 py-3 font-medium text-[#f1f0ea] shadow-lg ring-1 ring-[#2f5d3a]/20 transition hover:bg-[#14130f]/90"
