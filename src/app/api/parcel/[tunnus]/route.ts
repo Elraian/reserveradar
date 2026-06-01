@@ -4,6 +4,7 @@
 import { NextResponse } from "next/server";
 import { resolveParcel } from "@/lib/server/parcel";
 import { isValidTunnus } from "@/lib/types";
+import { allowRequest, rateLimited } from "@/lib/server/ratelimit";
 
 // WFS/RT/Gemini need Node APIs (fetch + @google/genai) — never Edge.
 export const runtime = "nodejs";
@@ -14,9 +15,10 @@ export const dynamic = "force-dynamic";
 export const maxDuration = 60;
 
 export async function GET(
-  _req: Request,
+  req: Request,
   { params }: { params: Promise<{ tunnus: string }> },
 ) {
+  if (!(await allowRequest(req))) return rateLimited();
   const { tunnus } = await params;
 
   if (!isValidTunnus(tunnus)) {

@@ -4,6 +4,7 @@
 // Body: { tunnus: string }.
 import { streamAnswer } from "@/lib/server/answer-stream";
 import { isValidTunnus, type ChatStreamEvent } from "@/lib/types";
+import { allowRequest, rateLimited } from "@/lib/server/ratelimit";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -27,6 +28,7 @@ function frame(evt: ChatStreamEvent): string {
 }
 
 export async function POST(req: Request) {
+  if (!(await allowRequest(req))) return rateLimited();
   let tunnus = "";
   let question = "";
   try {

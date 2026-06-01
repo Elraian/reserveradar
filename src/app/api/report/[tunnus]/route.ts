@@ -3,6 +3,7 @@
 import { NextResponse } from "next/server";
 import { buildReport } from "@/lib/server/report";
 import { isValidTunnus } from "@/lib/types";
+import { allowRequest, rateLimited } from "@/lib/server/ratelimit";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -18,9 +19,10 @@ export function OPTIONS() {
 }
 
 export async function GET(
-  _req: Request,
+  req: Request,
   { params }: { params: Promise<{ tunnus: string }> },
 ) {
+  if (!(await allowRequest(req))) return rateLimited();
   const { tunnus } = await params;
   if (!isValidTunnus(tunnus)) {
     return NextResponse.json({ found: false, tunnus, error: "Vigane katastritunnus" }, { status: 400, headers: CORS });

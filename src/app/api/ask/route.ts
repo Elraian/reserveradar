@@ -5,6 +5,7 @@
 // Body: { tunnus?: string, messages: { role: "user"|"assistant"|"model", text: string }[] }
 import { NextResponse } from "next/server";
 import { ask } from "@scripts/agent.mjs";
+import { allowRequest, rateLimited } from "@/lib/server/ratelimit";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -23,6 +24,7 @@ export function OPTIONS() {
 type InMsg = { role: string; text: string };
 
 export async function POST(req: Request) {
+  if (!(await allowRequest(req))) return rateLimited();
   const body = (await req.json().catch(() => ({}))) as { tunnus?: string; messages?: InMsg[] };
   const tunnus = (body.tunnus ?? "").trim();
   const raw = Array.isArray(body.messages) ? body.messages : [];
