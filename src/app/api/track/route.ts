@@ -5,9 +5,9 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 const SUPABASE_URL =
-  process.env.NEXT_PUBLIC_SUPABASE_URL || "https://iryqjbfixkqvdhwwhlze.supabase.co";
+  process.env.NEXT_PUBLIC_SUPABASE_URL || "https://jytpiyyzvlhovzltboxb.supabase.co";
 const SUPABASE_KEY =
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "sb_publishable_voihDAi7MkqnmYgWR9visg_m33tp3oI";
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "sb_publishable_mA4j5u3GArX1pC40Ot11Xw_uR5jz_Mn";
 
 function clientIp(req: Request): string | null {
   const xff = req.headers.get("x-forwarded-for");
